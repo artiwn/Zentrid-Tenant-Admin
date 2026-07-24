@@ -1,0 +1,59 @@
+{
+  "name": "zentrid-tenant-admin",
+  "version": "1.44.5",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "clean": "node scripts/clean-dist.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:browser": "node scripts/build-browser.js",
+    "build:server": "tsc -p tsconfig.server.build.json",
+    "build:css": "node scripts/build-css.js",
+    "copy:static": "node scripts/copy-static.js",
+    "check:standalone": "node scripts/check-standalone.js",
+    "check:dist": "node scripts/check-dist.js",
+    "build": "npm run clean && npm run typecheck && npm run build:browser && npm run build:server && npm run copy:static && npm run build:css && npm run build:release && npm run check:login-release-assets && npm run check:overview && npm run check:clients && npm run check:plants && npm run check:devices && npm run check:alerts && npm run check:runtime-recovery && npm run check:details && npm run check:uuid-details && npm run check:detail-observer-safety && npm run check:telemetry && npm run check:energy && npm run check:finance && npm run check:reports && npm run check:integrations && npm run check:users && npm run check:settings && npm run check:settings-runtime && npm run check:release-integrity && npm run check:standalone && npm run check:dist",
+    "start": "npm run build && node dist/proxy-server.js",
+    "dev": "npm run start",
+    "build:release": "node scripts/generate-release-manifest.js --target=local",
+    "check:login-release-assets": "node scripts/check-login-release-assets.js",
+    "check:overview": "node scripts/check-overview-parity.js",
+    "check:clients": "node scripts/check-clients-parity.js",
+    "check:plants": "node scripts/check-plants-parity.js",
+    "check:devices": "node scripts/check-devices-parity.js",
+    "check:alerts": "node scripts/check-alerts-parity.js",
+    "check:runtime-recovery": "node scripts/check-runtime-recovery.js",
+    "check:details": "node scripts/check-detail-routing.js",
+    "check:telemetry": "node scripts/check-telemetry-parity.js",
+    "check:uuid-details": "node scripts/check-uuid-detail-stability.js",
+    "check:detail-observer-safety": "node scripts/check-detail-observer-safety.js",
+    "check:energy": "node scripts/check-energy-analytics-parity.js",
+    "check:finance": "node scripts/check-finance-parity.js",
+    "check:reports": "node scripts/check-reports-parity.js",
+    "check:integrations": "node scripts/check-integration-health-parity.js",
+    "check:users": "node scripts/check-users-access-parity.js",
+    "check:settings": "node scripts/check-settings-parity.js",
+    "check:settings-runtime": "node scripts/check-settings-runtime.js",
+    "check:release-integrity": "node scripts/check-release-integrity.js",
+    "check:registry": "node scripts/check-package-registry.js",
+    "check:vercel-config": "node scripts/check-vercel-config.js",
+    "check:vercel-dist": "node scripts/check-dist.js --target=vercel",
+    "build:release:vercel": "node scripts/generate-release-manifest.js --target=vercel",
+    "build:vercel": "npm run clean && npm run typecheck && npm run build:browser && npm run copy:static && npm run build:css && npm run build:release:vercel && npm run check:vercel-config && npm run check:vercel-dist",
+    "verify:vercel": "npm run check:registry && npm run build:vercel"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10"
+  },
+  "packageManager": "npm@11.16.0",
+  "zentridWorkspace": "tenant-admin-standalone",
+  "zentridRelease": "v144.5"
+}
