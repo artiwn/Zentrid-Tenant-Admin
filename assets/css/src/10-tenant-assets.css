@@ -1,0 +1,543 @@
+/* Zentrid shared design v6 — Client Plant Assignment workspace */
+.cpa-workspace-grid { grid-template-columns: minmax(540px, 1.08fr) minmax(420px, .92fr); align-items: start; }
+.cpa-form-card, .cpa-detail-card { min-height: 100%; }
+.cpa-form-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cpa-form-grid-2 .wide-field { grid-column: 1 / -1; }
+.cpa-subgrid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.cpa-subgrid h3, .cpa-detail-section h3 { margin: 0 0 12px; font-size: 14px; letter-spacing: -.01em; }
+.cpa-check-grid { grid-template-columns: 1fr; margin-top: 0; }
+.cpa-notes { display:block; margin-top: 18px; }
+.cpa-notes textarea { width: 100%; resize: vertical; min-height: 88px; }
+.cpa-validation-box { margin-top: 16px; padding: 14px; border-radius: 18px; border: 1px solid rgba(148,163,184,.12); background: rgba(255,255,255,.035); }
+.cpa-validation-box h3 { margin: 0 0 10px; font-size: 13px; color: #e5f2ff; }
+.cpa-validation-list { display:grid; gap: 8px; }
+.cpa-validation-list div { display:flex; align-items:center; gap: 9px; padding: 9px 11px; border-radius: 12px; color:#dbeafe; background: rgba(255,255,255,.035); border:1px solid rgba(148,163,184,.10); font-size: 12px; line-height: 1.35; }
+.cpa-validation-list div span { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); flex: 0 0 auto; }
+.cpa-validation-list div.success span { background: #34d399; }
+.cpa-validation-list div.warning span { background: #f59e0b; }
+.cpa-validation-list div.danger span { background: #fb7185; }
+.cpa-form-actions { margin-top: 14px; justify-content: flex-end; }
+.cpa-detail-head { display:flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 16px; }
+.cpa-detail-head h2 { margin: 4px 0 6px; font-size: 22px; line-height: 1.15; }
+.cpa-detail-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
+.cpa-detail-section { padding: 14px; border-radius: 18px; border: 1px solid rgba(148,163,184,.12); background: rgba(255,255,255,.03); margin-top: 12px; }
+.cpa-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cpa-pill-list { display:flex; gap: 8px; flex-wrap: wrap; }
+.cpa-pill-list span { padding: 8px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; border: 1px solid rgba(148,163,184,.14); background: rgba(255,255,255,.035); color: #94a3b8; }
+.cpa-pill-list span.on { color: #cffafe; background: rgba(34,211,238,.10); border-color: rgba(34,211,238,.25); }
+.cpa-pill-list span.off { opacity: .68; }
+.data-row.selected-row { outline: 1px solid rgba(34,211,238,.32); background: rgba(34,211,238,.055); }
+.search-pill input { min-width: 260px; border: 0; outline: 0; background: transparent; color: #e5f2ff; }
+.ghost-btn { background: rgba(255,255,255,.04) !important; color: #dbeafe !important; border: 1px solid rgba(148,163,184,.14) !important; }
+@media (max-width: 1180px){ .cpa-workspace-grid, .cpa-subgrid { grid-template-columns: 1fr; } }
+@media (max-width: 760px){ .cpa-form-grid-2, .cpa-detail-kpis, .cpa-detail-grid { grid-template-columns: 1fr; } .search-pill input { min-width: 0; width: 100%; } }
+
+/* Client–Plant Assignment — polished workspace v7 */
+.cpa-info-strip {
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:14px;
+  margin: 18px 0 18px;
+}
+.cpa-info-strip article {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:74px;
+  padding:16px 18px;
+  border:1px solid rgba(148,163,184,.16);
+  background:linear-gradient(145deg, rgba(15,23,42,.74), rgba(15,23,42,.42));
+  border-radius:20px;
+  box-shadow:0 14px 34px rgba(2,6,23,.16);
+}
+.cpa-info-strip strong {
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  background:rgba(34,211,238,.12);
+  color:#8eeaff;
+  border:1px solid rgba(34,211,238,.22);
+  font-size:14px;
+}
+.cpa-info-strip span {
+  color:#dbeafe;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.35;
+}
+
+.cpa-kpis .module-card,
+.tenant-management-kpis .module-card {
+  min-height:132px;
+  padding:22px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:8px;
+}
+.cpa-kpis .module-card span,
+.tenant-management-kpis .module-card span {
+  color:#94a3b8;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:800;
+}
+.cpa-kpis .module-card strong,
+.tenant-management-kpis .module-card strong {
+  color:#f8fafc;
+  font-size:34px;
+  letter-spacing:-.04em;
+}
+.cpa-kpis .module-card small,
+.tenant-management-kpis .module-card small {
+  color:#93a4b8;
+  line-height:1.35;
+}
+
+.cpa-main-grid {
+  display:grid;
+  grid-template-columns:minmax(0, 1.45fr) minmax(360px, .75fr);
+  gap:18px;
+  align-items:start;
+  margin-top:18px;
+}
+.cpa-registry-panel,
+.cpa-detail-card {
+  min-width:0;
+}
+.cpa-panel-head {
+  gap:18px;
+  align-items:flex-start;
+}
+.cpa-panel-head h2,
+.cpa-detail-card h2,
+.cpa-assignment-modal h2 {
+  margin:0;
+  color:#f8fafc;
+  letter-spacing:-.03em;
+}
+.cpa-panel-head p,
+.cpa-assignment-modal p,
+.cpa-detail-card .muted {
+  color:#94a3b8;
+  line-height:1.45;
+}
+.cpa-panel-head .search-pill {
+  min-width:280px;
+}
+
+.cpa-table {
+  overflow:visible;
+}
+.cpa-table .data-head,
+.cpa-table .data-row {
+  grid-template-columns: 1.05fr 1.2fr .9fr .82fr 1fr 44px;
+  gap:16px;
+  align-items:center;
+}
+.cpa-table .data-head {
+  color:#7f91aa;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-weight:800;
+  padding:0 16px 10px;
+}
+.cpa-table .data-row {
+  margin-bottom:10px;
+  padding:16px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.12);
+  background:rgba(15,23,42,.44);
+  transition:.18s ease;
+}
+.cpa-table .data-row:hover,
+.cpa-table .selected-row {
+  border-color:rgba(34,211,238,.32);
+  background:rgba(15,23,42,.68);
+  box-shadow:0 14px 34px rgba(2,6,23,.18);
+}
+.cpa-table .data-row strong {
+  display:block;
+  color:#f8fafc;
+  font-size:13px;
+  line-height:1.35;
+}
+.cpa-table .data-row small {
+  display:block;
+  margin-top:5px;
+  color:#8a9bb3;
+  font-size:11px;
+  line-height:1.45;
+}
+.tenant-status-stack {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:8px;
+}
+.tenant-status-stack .badge {
+  margin-bottom:0;
+}
+.archive-actions-cell {
+  display:flex;
+  justify-content:flex-end;
+}
+
+.cpa-detail-card {
+  position:sticky;
+  top:92px;
+  padding:22px;
+  max-height:calc(100vh - 122px);
+  overflow:auto;
+}
+.cpa-detail-top {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding-bottom:16px;
+  border-bottom:1px solid rgba(148,163,184,.12);
+}
+.cpa-detail-top h2 {
+  font-size:21px;
+}
+.cpa-detail-top .badge {
+  margin-top:30px;
+  flex-shrink:0;
+}
+.cpa-id-line {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:14px 0 16px;
+}
+.cpa-id-line span {
+  padding:7px 10px;
+  border-radius:999px;
+  background:rgba(15,23,42,.62);
+  color:#cbd5e1;
+  border:1px solid rgba(148,163,184,.13);
+  font-size:12px;
+  font-weight:700;
+}
+.cpa-detail-kpis {
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:10px;
+  margin:16px 0;
+}
+.cpa-detail-kpis article {
+  padding:14px;
+  border-radius:16px;
+  background:rgba(2,6,23,.28);
+  border:1px solid rgba(148,163,184,.12);
+}
+.cpa-detail-kpis span,
+.cpa-detail-grid span {
+  color:#7f91aa;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+  font-weight:800;
+}
+.cpa-detail-kpis strong,
+.cpa-detail-grid strong {
+  display:block;
+  color:#f8fafc;
+  margin-top:6px;
+  line-height:1.35;
+}
+.cpa-detail-kpis small {
+  color:#8a9bb3;
+  display:block;
+  margin-top:6px;
+  line-height:1.35;
+}
+.cpa-detail-section {
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid rgba(148,163,184,.12);
+}
+.cpa-detail-section h3,
+.cpa-form-section h3 {
+  margin:0 0 12px;
+  color:#e2e8f0;
+  font-size:14px;
+  letter-spacing:-.01em;
+}
+.cpa-detail-grid {
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+.cpa-detail-grid div {
+  padding:13px;
+  border-radius:14px;
+  background:rgba(15,23,42,.38);
+  border:1px solid rgba(148,163,184,.1);
+}
+.cpa-pill-list {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.cpa-pill-list span {
+  padding:8px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  border:1px solid rgba(148,163,184,.12);
+}
+.cpa-pill-list .on {
+  color:#baf7d0;
+  background:rgba(34,197,94,.11);
+  border-color:rgba(34,197,94,.22);
+}
+.cpa-pill-list .off {
+  color:#7f91aa;
+  background:rgba(15,23,42,.36);
+}
+.cpa-validation-list {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.cpa-validation-list div {
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  padding:10px 12px;
+  border-radius:14px;
+  font-size:12px;
+  line-height:1.45;
+  border:1px solid rgba(148,163,184,.12);
+  color:#cbd5e1;
+}
+.cpa-validation-list div span {
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  margin-top:5px;
+  flex-shrink:0;
+}
+.cpa-validation-list .success { background:rgba(34,197,94,.08); border-color:rgba(34,197,94,.18); }
+.cpa-validation-list .success span { background:#22c55e; }
+.cpa-validation-list .warning { background:rgba(245,158,11,.08); border-color:rgba(245,158,11,.18); }
+.cpa-validation-list .warning span { background:#f59e0b; }
+.cpa-validation-list .danger { background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.2); }
+.cpa-validation-list .danger span { background:#ef4444; }
+
+.cpa-modal-backdrop {
+  backdrop-filter: blur(14px);
+}
+.cpa-assignment-modal {
+  width:min(1120px, calc(100vw - 42px));
+  max-height:calc(100vh - 52px);
+  overflow:auto;
+  padding:0;
+}
+.cpa-modal-head {
+  position:sticky;
+  top:0;
+  z-index:5;
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  padding:24px 26px 18px;
+  background:linear-gradient(180deg, rgba(15,23,42,.98), rgba(15,23,42,.90));
+  border-bottom:1px solid rgba(148,163,184,.14);
+}
+.cpa-assignment-form {
+  padding:22px 26px 26px;
+}
+.cpa-form-section {
+  padding:18px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,.13);
+  background:rgba(2,6,23,.20);
+  margin-bottom:16px;
+}
+.cpa-form-grid {
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:14px;
+}
+.cpa-form-two-col {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+.cpa-assignment-form label {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  color:#aebbd0;
+  font-size:12px;
+  font-weight:800;
+}
+.cpa-assignment-form select,
+.cpa-assignment-form input,
+.cpa-assignment-form textarea {
+  width:100%;
+  min-height:42px;
+  border-radius:13px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.66);
+  color:#f8fafc;
+  padding:10px 12px;
+  outline:none;
+}
+.cpa-assignment-form textarea {
+  min-height:92px;
+  resize:vertical;
+}
+.cpa-assignment-form select:focus,
+.cpa-assignment-form input:focus,
+.cpa-assignment-form textarea:focus {
+  border-color:rgba(34,211,238,.46);
+  box-shadow:0 0 0 3px rgba(34,211,238,.08);
+}
+.cpa-assignment-form .wide-field {
+  grid-column:1 / -1;
+}
+.cpa-check-grid {
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+.cpa-check-grid .check {
+  flex-direction:row;
+  align-items:center;
+  gap:9px;
+  min-height:42px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(15,23,42,.46);
+  border:1px solid rgba(148,163,184,.10);
+  color:#dbeafe;
+  font-weight:700;
+}
+.cpa-check-grid input {
+  width:16px;
+  min-height:auto;
+  accent-color:#22d3ee;
+}
+.cpa-validation-box {
+  margin-top:12px;
+}
+.cpa-form-actions {
+  position:sticky;
+  bottom:0;
+  margin:0 -26px -26px;
+  padding:16px 26px;
+  background:linear-gradient(0deg, rgba(15,23,42,.98), rgba(15,23,42,.86));
+  border-top:1px solid rgba(148,163,184,.14);
+}
+
+@media (max-width: 1180px) {
+  .cpa-main-grid { grid-template-columns:1fr; }
+  .cpa-detail-card { position:relative; top:auto; max-height:none; }
+  .cpa-info-strip { grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 820px) {
+  .cpa-table .data-head { display:none; }
+  .cpa-table .data-row { grid-template-columns:1fr; }
+  .cpa-form-grid, .cpa-form-two-col, .cpa-detail-kpis, .cpa-detail-grid, .cpa-check-grid, .cpa-info-strip { grid-template-columns:1fr; }
+  .cpa-panel-head .search-pill { min-width:0; width:100%; }
+}
+
+/* Client–Plant Assignment fixes v8: working scroll + centered modal */
+.panel.glass-card.cpa-detail-card {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100dvh - 132px);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.modal-backdrop.cpa-modal-backdrop,
+.cpa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(2, 8, 18, .76);
+  backdrop-filter: blur(14px);
+  animation: cpaBackdropIn .16s ease both;
+}
+
+.modal-card.cpa-assignment-modal,
+.cpa-assignment-modal {
+  position: relative;
+  width: min(1120px, calc(100vw - 56px));
+  max-height: min(900px, calc(100dvh - 56px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  margin: 0;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(16,31,54,.98), rgba(8,18,34,.98));
+  border: 1px solid rgba(148,163,184,.18);
+  box-shadow: 0 30px 90px rgba(2,6,23,.72), 0 0 0 1px rgba(34,211,238,.04) inset;
+  transform-origin: center;
+  animation: cpaModalIn .18s ease both;
+  scrollbar-gutter: stable;
+}
+
+.cpa-assignment-modal .drawer-close {
+  position: static;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.cpa-modal-head {
+  align-items: flex-start;
+}
+
+@keyframes cpaBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cpaModalIn {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 1180px) {
+  .panel.glass-card.cpa-detail-card {
+    max-height: 620px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 820px) {
+  .cpa-modal-backdrop {
+    padding: 14px;
+    place-items: start center;
+  }
+  .modal-card.cpa-assignment-modal,
+  .cpa-assignment-modal {
+    width: min(100%, calc(100vw - 28px));
+    max-height: calc(100dvh - 28px);
+    border-radius: 22px;
+  }
+  .cpa-modal-head {
+    padding: 20px 18px 16px;
+  }
+  .cpa-assignment-form {
+    padding: 18px;
+  }
+  .cpa-form-actions {
+    margin: 0 -18px -18px;
+    padding: 14px 18px;
+  }
+}
+
+

@@ -1,0 +1,71 @@
+/* Shared detail workspace card shells.
+   Page-specific colors, hover states, compact sizing and content layouts stay in their page CSS. */
+.client-side-card-v17,
+.plant-side-card-v17,
+.production-side-card-v92 {
+  position: sticky;
+  top: calc(var(--topbar-height) + 18px);
+  padding: 16px;
+  border-radius: var(--radius);
+  display: grid;
+  gap: 8px;
+}
+
+.client-side-card-v17 h3,
+.plant-side-card-v17 h3,
+.production-side-card-v92 h3 {
+  margin: 2px 4px 10px;
+  font-size: 14px;
+  letter-spacing: .02em;
+}
+
+.client-side-card-v17 button,
+.plant-side-card-v17 button,
+.production-side-card-v92 button {
+  min-height: 42px;
+  border: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 14px;
+  background: rgba(255,255,255,.035);
+  color: #cbd8e7;
+  text-align: left;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.client-side-card-v17 button.active,
+.plant-side-card-v17 button.active,
+.production-side-card-v92 button.active {
+  color: #06111f;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+}
+
+.client-main-card-v17,
+.plant-main-card-v17,
+.production-main-card-v92 {
+  min-width: 0;
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+@media (max-width: 1180px) {
+  .client-side-card-v17,
+  .plant-side-card-v17,
+  .production-side-card-v92 {
+    position: static;
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .client-side-card-v17 h3,
+  .plant-side-card-v17 h3,
+  .production-side-card-v92 h3 {
+    display: none;
+  }
+
+  .client-side-card-v17 button,
+  .plant-side-card-v17 button,
+  .production-side-card-v92 button {
+    white-space: nowrap;
+  }
+}

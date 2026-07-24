@@ -1,0 +1,226 @@
+/* Tenant Admin Energy Analytics — Global Admin Production Center parity */
+.energy-analytics-page-v1431 .hero-actions {
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.energy-analytics-page-v1431 .hero-actions .secondary-action {
+  min-height: 56px;
+  padding-inline: 20px;
+}
+.energy-context-bar-v1431 {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.energy-filter-panel-v1431 {
+  margin-bottom: 18px;
+}
+.energy-toolbar-v1431 {
+  grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(160px, .8fr)) auto;
+}
+.energy-workspace-v1431 {
+  margin-top: 0;
+}
+.energy-side-v1431 {
+  position: sticky;
+  top: calc(var(--topbar-height) + 18px);
+}
+.energy-main-v1431 {
+  min-width: 0;
+}
+.energy-kpis-v1431 {
+  margin-bottom: 18px;
+}
+.energy-overview-grid-v1431 {
+  align-items: stretch;
+}
+.energy-overview-grid-v1431 > article {
+  min-width: 0;
+}
+.energy-chart-card-v1431 {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.production-svg-chart .energy-area-v1431 {
+  fill: url(#energyAnalyticsFill);
+  stroke: none;
+}
+.energy-balance-card-v1431 {
+  padding: 18px;
+}
+.energy-balance-card-v1431 .production-flow-item {
+  grid-template-columns: minmax(130px, .9fr) minmax(140px, 1.4fr) 110px;
+}
+.energy-client-table-v1431 .data-head,
+.energy-client-table-v1431 .data-row {
+  grid-template-columns: minmax(210px, 1.15fr) minmax(160px, .82fr) minmax(180px, .95fr) minmax(170px, .88fr) minmax(170px, .88fr) minmax(150px, .76fr) 86px !important;
+}
+.energy-plant-table-v1431 .data-head,
+.energy-plant-table-v1431 .data-row {
+  grid-template-columns: minmax(210px, 1.1fr) minmax(155px, .76fr) minmax(190px, .92fr) minmax(165px, .82fr) minmax(165px, .82fr) minmax(145px, .72fr) minmax(150px, .76fr) 64px !important;
+}
+.energy-chart-table-v1431 .data-head,
+.energy-chart-table-v1431 .data-row {
+  grid-template-columns: minmax(120px, .7fr) repeat(5, minmax(130px, 1fr));
+}
+.energy-performance-table-v1431 .data-head,
+.energy-performance-table-v1431 .data-row {
+  grid-template-columns: minmax(210px, 1.2fr) repeat(5, minmax(135px, .82fr));
+}
+.energy-analytics-page-v1431 [data-energy-width] {
+  width: 0;
+  transition: width .28s ease;
+}
+.energy-analytics-page-v1431 .production-comparison-card {
+  text-align: left;
+}
+.energy-analytics-page-v1431 .production-chart-card {
+  min-width: 0;
+}
+.energy-analytics-page-v1431 .production-svg-chart {
+  min-width: 620px;
+}
+.energy-analytics-page-v1431 .production-chart-card {
+  overflow-x: auto;
+}
+@media (max-width: 1320px) {
+  .energy-context-bar-v1431 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .energy-toolbar-v1431 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .energy-client-table-v1431 .data-head,
+  .energy-client-table-v1431 .data-row,
+  .energy-plant-table-v1431 .data-head,
+  .energy-plant-table-v1431 .data-row,
+  .energy-chart-table-v1431 .data-head,
+  .energy-chart-table-v1431 .data-row,
+  .energy-performance-table-v1431 .data-head,
+  .energy-performance-table-v1431 .data-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 900px) {
+  .energy-context-bar-v1431,
+  .energy-toolbar-v1431 {
+    grid-template-columns: 1fr;
+  }
+  .energy-side-v1431 {
+    position: static;
+  }
+  .energy-balance-card-v1431 .production-flow-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* v144.2 targeted Energy Analytics action-column containment */
+.energy-analytics-page-v1431 .energy-plant-table-v1431 {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-head,
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row {
+  width: 100%;
+  min-width: 1160px;
+  box-sizing: border-box;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell {
+  width: 64px !important;
+  min-width: 0 !important;
+  max-width: 64px;
+  justify-self: center;
+  justify-content: center !important;
+  padding-inline: 0 !important;
+  overflow: hidden !important;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell .global-action-wrap,
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell .kebab-btn {
+  flex: 0 0 34px;
+  max-width: 34px;
+}
+@media (max-width: 1320px) {
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .data-head,
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row {
+    min-width: 0;
+  }
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell {
+    width: 100% !important;
+    max-width: 100%;
+    justify-self: stretch;
+    justify-content: flex-start !important;
+    overflow: visible !important;
+  }
+}
+
+/* v144.3 — keep every Energy Analytics cell inside the clickable row */
+.energy-analytics-page-v1431 .energy-plant-table-v1431 {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-head,
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row {
+  width: 100%;
+  min-width: 1120px;
+  grid-template-columns: minmax(170px, 1.08fr) minmax(125px, .72fr) minmax(155px, .9fr) minmax(130px, .78fr) minmax(130px, .78fr) minmax(125px, .7fr) minmax(125px, .72fr) 54px !important;
+  box-sizing: border-box;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row.clickable-row {
+  max-width: none;
+  align-items: center;
+  overflow: visible;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row.clickable-row > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row.clickable-row strong,
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row.clickable-row small,
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row.clickable-row span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell {
+  width: 54px !important;
+  min-width: 54px !important;
+  max-width: 54px !important;
+  justify-self: stretch;
+  justify-content: center !important;
+  align-items: center;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+.energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell .global-action-wrap {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  justify-content: center;
+}
+@media (max-width: 1320px) {
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .data-head,
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row {
+    min-width: 1120px;
+    grid-template-columns: minmax(170px, 1.08fr) minmax(125px, .72fr) minmax(155px, .9fr) minmax(130px, .78fr) minmax(130px, .78fr) minmax(125px, .7fr) minmax(125px, .72fr) 54px !important;
+  }
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell {
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    justify-self: stretch;
+    justify-content: center !important;
+  }
+}
+@media (max-width: 768px) {
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .data-row {
+    min-width: 0;
+  }
+  .energy-analytics-page-v1431 .energy-plant-table-v1431 .production-actions-cell {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    justify-content: flex-start !important;
+  }
+}

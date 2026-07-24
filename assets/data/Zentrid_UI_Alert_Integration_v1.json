@@ -1,0 +1,685 @@
+{
+  "schema_version": "1.0.0",
+  "dictionary_name": "Zentrid UI Alert Integration",
+  "purpose": "Link Zentrid canonical alert mapping with the unified UI field dictionary and UI screens so labels and field keys stay consistent across Alarm List, Alarm Detail, Device pages and future screens.",
+  "source_files": {
+    "ui_field_dictionary": "Zentrid_UI_Field_Dictionary_v1.json",
+    "ui_screens": "Zentrid_UI_Screens_v1.json",
+    "canonical_alert_mapping": "Zentrid_Canonical_Alerts_Mapping_v1_clean.json"
+  },
+  "counts": {
+    "ui_dictionary_fields": 515,
+    "ui_screens": 19,
+    "canonical_alerts": 28,
+    "vendor_mappings": 844,
+    "field_bindings": 11
+  },
+  "alert_mapping_to_ui_field_bindings": [
+    {
+      "alert_mapping_field": "zentrid_alert_code",
+      "ui_dictionary_field_key": "normalized_alarm_code",
+      "ui_key": "alarm.normalized_alarm_code",
+      "ui_label": "Zentrid Alarm Code",
+      "data_type": "string",
+      "unit": null,
+      "binding_note": "Zentrid normalized alert code shown in UI",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "zentrid_alert_name",
+      "ui_dictionary_field_key": "alarm_name",
+      "ui_key": "alarm.name",
+      "ui_label": "Alarm Name",
+      "data_type": "string",
+      "unit": null,
+      "binding_note": "Zentrid normalized alert name shown in UI",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "zentrid_category",
+      "ui_dictionary_field_key": "alarm_category",
+      "ui_key": "alarm.category",
+      "ui_label": "Category",
+      "data_type": "enum",
+      "unit": null,
+      "binding_note": "Zentrid normalized alert category shown in UI/filter",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor",
+      "ui_dictionary_field_key": "source_system",
+      "ui_key": "alarm.source_system",
+      "ui_label": "Source System",
+      "data_type": "enum",
+      "unit": null,
+      "binding_note": "Vendor/source system that produced the original alert",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor_error_code",
+      "ui_dictionary_field_key": "source_alarm_code",
+      "ui_key": "alarm.source_alarm_code",
+      "ui_label": "Source Alarm Code",
+      "data_type": "string",
+      "unit": null,
+      "binding_note": "Original vendor alert/error code",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor_error_name",
+      "ui_dictionary_field_key": "source_alarm_name",
+      "ui_key": "alarm.source_alarm_name",
+      "ui_label": "Source Alarm Name",
+      "data_type": "string",
+      "unit": null,
+      "binding_note": "Original vendor alert/error name",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor_error_description",
+      "ui_dictionary_field_key": "description",
+      "ui_key": "alarm.description",
+      "ui_label": "Description",
+      "data_type": "text",
+      "unit": null,
+      "binding_note": "Vendor original description displayed in alarm detail",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor_probable_cause",
+      "ui_dictionary_field_key": "probable_reasons",
+      "ui_key": "alarm.probable_reasons",
+      "ui_label": "Probable Reasons",
+      "data_type": "text / array",
+      "unit": null,
+      "binding_note": "Vendor probable cause displayed in alarm detail",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor_recommended_action",
+      "ui_dictionary_field_key": "suggested_treatment",
+      "ui_key": "alarm.suggested_treatment",
+      "ui_label": "Suggested Treatment",
+      "data_type": "text / array",
+      "unit": null,
+      "binding_note": "Vendor recommended action displayed in alarm detail",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "vendor_severity",
+      "ui_dictionary_field_key": "source_severity",
+      "ui_key": "alarm.source_severity",
+      "ui_label": "Source Severity",
+      "data_type": "string",
+      "unit": null,
+      "binding_note": "Original vendor severity",
+      "binding_status": "matched"
+    },
+    {
+      "alert_mapping_field": "device_family",
+      "ui_dictionary_field_key": "device_type",
+      "ui_key": "ev_charger.device_type",
+      "ui_label": "Device Type",
+      "data_type": "enum",
+      "unit": null,
+      "binding_note": "Vendor/device family context; displayed as device family/context when exact device model is unavailable",
+      "binding_status": "matched"
+    }
+  ],
+  "alert_screen_bindings": [
+    {
+      "screen_id": "alarm_detail",
+      "screen_name": "Alarm Detail",
+      "field_count": 53,
+      "linked_fields": [
+        {
+          "field_key": "source_system",
+          "ui_key": "alarm.source_system",
+          "ui_label": "Source System",
+          "section_id": "source_identity",
+          "section_name": "Source Identity",
+          "display_order": 2
+        },
+        {
+          "field_key": "normalized_alarm_code",
+          "ui_key": "alarm.normalized_alarm_code",
+          "ui_label": "Zentrid Alarm Code",
+          "section_id": "alarm_code",
+          "section_name": "Alarm Code",
+          "display_order": 1
+        },
+        {
+          "field_key": "source_alarm_code",
+          "ui_key": "alarm.source_alarm_code",
+          "ui_label": "Source Alarm Code",
+          "section_id": "alarm_code",
+          "section_name": "Alarm Code",
+          "display_order": 2
+        },
+        {
+          "field_key": "alarm_name",
+          "ui_key": "alarm.name",
+          "ui_label": "Alarm Name",
+          "section_id": "alarm_name",
+          "section_name": "Alarm Name",
+          "display_order": 1
+        },
+        {
+          "field_key": "source_alarm_name",
+          "ui_key": "alarm.source_alarm_name",
+          "ui_label": "Source Alarm Name",
+          "section_id": "alarm_name",
+          "section_name": "Alarm Name",
+          "display_order": 2
+        },
+        {
+          "field_key": "alarm_category",
+          "ui_key": "alarm.category",
+          "ui_label": "Category",
+          "section_id": "category",
+          "section_name": "Category",
+          "display_order": 1
+        },
+        {
+          "field_key": "source_severity",
+          "ui_key": "alarm.source_severity",
+          "ui_label": "Source Severity",
+          "section_id": "severity",
+          "section_name": "Severity",
+          "display_order": 2
+        },
+        {
+          "field_key": "device_type",
+          "ui_key": "ev_charger.device_type",
+          "ui_label": "Device Type",
+          "section_id": "device",
+          "section_name": "Device",
+          "display_order": 3
+        },
+        {
+          "field_key": "description",
+          "ui_key": "alarm.description",
+          "ui_label": "Description",
+          "section_id": "description",
+          "section_name": "Description",
+          "display_order": 1
+        },
+        {
+          "field_key": "probable_reasons",
+          "ui_key": "alarm.probable_reasons",
+          "ui_label": "Probable Reasons",
+          "section_id": "root_cause",
+          "section_name": "Root Cause",
+          "display_order": 1
+        },
+        {
+          "field_key": "suggested_treatment",
+          "ui_key": "alarm.suggested_treatment",
+          "ui_label": "Suggested Treatment",
+          "section_id": "treatment",
+          "section_name": "Treatment",
+          "display_order": 1
+        }
+      ]
+    },
+    {
+      "screen_id": "alarm_list",
+      "screen_name": "Alarm List",
+      "field_count": 31,
+      "linked_fields": [
+        {
+          "field_key": "device_type",
+          "ui_key": "ev_charger.device_type",
+          "ui_label": "Device Type",
+          "section_id": "alarm_center",
+          "section_name": "Alarm Center",
+          "display_order": 9
+        },
+        {
+          "field_key": "suggested_treatment",
+          "ui_key": "alarm.suggested_treatment",
+          "ui_label": "Suggested Treatment",
+          "section_id": "alarm_center",
+          "section_name": "Alarm Center",
+          "display_order": 17
+        },
+        {
+          "field_key": "source_system",
+          "ui_key": "alarm.source_system",
+          "ui_label": "Source",
+          "section_id": "alarm_center",
+          "section_name": "Alarm Center",
+          "display_order": 23
+        }
+      ]
+    }
+  ],
+  "canonical_alerts_ui": [
+    {
+      "zentrid_alert_code": "FL-GRD-OV",
+      "zentrid_alert_name": "Grid Overvoltage",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "GRID",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Grid Overvoltage",
+        "default_icon": "grid",
+        "mapped_vendor_record_count": 17
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-GRD-UV",
+      "zentrid_alert_name": "Grid Undervoltage",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "GRID",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Grid Undervoltage",
+        "default_icon": "grid",
+        "mapped_vendor_record_count": 8
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-GRD-FREQ",
+      "zentrid_alert_name": "Grid Frequency Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "GRID",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Grid Frequency Fault",
+        "default_icon": "grid",
+        "mapped_vendor_record_count": 34
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-GRD-FAIL",
+      "zentrid_alert_name": "Grid Failure / Grid Lost",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "GRID",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Grid Failure / Grid Lost",
+        "default_icon": "grid",
+        "mapped_vendor_record_count": 15
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-PV-OV",
+      "zentrid_alert_name": "PV Overvoltage",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "PV",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "PV Overvoltage",
+        "default_icon": "solar_panel",
+        "mapped_vendor_record_count": 12
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-PV-ISO",
+      "zentrid_alert_name": "PV Insulation Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "PV",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "PV Insulation Fault",
+        "default_icon": "solar_panel",
+        "mapped_vendor_record_count": 70
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-PV-ARC",
+      "zentrid_alert_name": "DC Arc Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "PV",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "DC Arc Fault",
+        "default_icon": "solar_panel",
+        "mapped_vendor_record_count": 7
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-PV-STR",
+      "zentrid_alert_name": "PV String Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "PV",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "PV String Fault",
+        "default_icon": "solar_panel",
+        "mapped_vendor_record_count": 59
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-BAT-COM",
+      "zentrid_alert_name": "Battery Communication Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "BATTERY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Battery Communication Fault",
+        "default_icon": "battery",
+        "mapped_vendor_record_count": 15
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-BAT-VOLT",
+      "zentrid_alert_name": "Battery Voltage Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "BATTERY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Battery Voltage Fault",
+        "default_icon": "battery",
+        "mapped_vendor_record_count": 19
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-BAT-TEMP",
+      "zentrid_alert_name": "Battery Temperature Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "BATTERY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Battery Temperature Fault",
+        "default_icon": "battery",
+        "mapped_vendor_record_count": 11
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-BAT-CURR",
+      "zentrid_alert_name": "Battery Current Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "BATTERY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Battery Current Fault",
+        "default_icon": "battery",
+        "mapped_vendor_record_count": 5
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-BAT-FAULT",
+      "zentrid_alert_name": "Battery System Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "BATTERY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Battery System Fault",
+        "default_icon": "battery",
+        "mapped_vendor_record_count": 17
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-INV-TEMP",
+      "zentrid_alert_name": "Inverter Temperature Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "INVERTER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Inverter Temperature Fault",
+        "default_icon": "inverter",
+        "mapped_vendor_record_count": 8
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-INV-FAN",
+      "zentrid_alert_name": "Inverter Fan Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "INVERTER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Inverter Fan Fault",
+        "default_icon": "inverter",
+        "mapped_vendor_record_count": 26
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-INV-BUS",
+      "zentrid_alert_name": "DC Bus Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "INVERTER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "DC Bus Fault",
+        "default_icon": "inverter",
+        "mapped_vendor_record_count": 35
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-INV-CURR",
+      "zentrid_alert_name": "Inverter Current Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "INVERTER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Inverter Current Fault",
+        "default_icon": "inverter",
+        "mapped_vendor_record_count": 52
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-INV-HW",
+      "zentrid_alert_name": "Inverter Hardware Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "INVERTER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Inverter Hardware Fault",
+        "default_icon": "inverter",
+        "mapped_vendor_record_count": 257
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-COM-LOGGER",
+      "zentrid_alert_name": "Logger Communication Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "COMMUNICATION",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Logger Communication Fault",
+        "default_icon": "wifi",
+        "mapped_vendor_record_count": 44
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-COM-SERVER",
+      "zentrid_alert_name": "Cloud Communication Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "COMMUNICATION",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Cloud Communication Fault",
+        "default_icon": "wifi",
+        "mapped_vendor_record_count": 12
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-COM-RS485",
+      "zentrid_alert_name": "RS485 Communication Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "COMMUNICATION",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "RS485 Communication Fault",
+        "default_icon": "wifi",
+        "mapped_vendor_record_count": 17
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-MTR-COM",
+      "zentrid_alert_name": "Meter Communication Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "METER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Meter Communication Fault",
+        "default_icon": "meter",
+        "mapped_vendor_record_count": 8
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-MTR-CT",
+      "zentrid_alert_name": "CT / Meter Wiring Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "METER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "CT / Meter Wiring Fault",
+        "default_icon": "meter",
+        "mapped_vendor_record_count": 7
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-SAFETY",
+      "zentrid_alert_name": "Safety Protection Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "SAFETY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Safety Protection Fault",
+        "default_icon": "shield",
+        "mapped_vendor_record_count": 14
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-FIRE",
+      "zentrid_alert_name": "Fire Protection Activated",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "SAFETY",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Fire Protection Activated",
+        "default_icon": "shield",
+        "mapped_vendor_record_count": 4
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-OPT",
+      "zentrid_alert_name": "Optimizer Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "OPTIMIZER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Optimizer Fault",
+        "default_icon": "optimizer",
+        "mapped_vendor_record_count": 23
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-EVC",
+      "zentrid_alert_name": "EV Charger Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "EV_CHARGER",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "EV Charger Fault",
+        "default_icon": "ev_charger",
+        "mapped_vendor_record_count": 25
+      }
+    },
+    {
+      "zentrid_alert_code": "FL-CFG",
+      "zentrid_alert_name": "Configuration Fault",
+      "description": "Zentrid normalized high-level alert bucket for cross-vendor mapping.",
+      "category": "CONFIGURATION",
+      "ui_binding": {
+        "code_field_key": "normalized_alarm_code",
+        "name_field_key": "alarm_name",
+        "category_field_key": "alarm_category",
+        "default_label": "Configuration Fault",
+        "default_icon": "settings",
+        "mapped_vendor_record_count": 23
+      }
+    }
+  ],
+  "recommended_ui_usage": {
+    "list_view_primary_fields": [
+      "normalized_alarm_code",
+      "alarm_name",
+      "alarm_category",
+      "severity",
+      "source_system",
+      "source_alarm_code",
+      "source_alarm_name",
+      "device_type"
+    ],
+    "detail_view_primary_fields": [
+      "normalized_alarm_code",
+      "alarm_name",
+      "alarm_category",
+      "source_system",
+      "source_alarm_code",
+      "source_alarm_name",
+      "description",
+      "probable_reasons",
+      "suggested_treatment",
+      "source_severity",
+      "device_type"
+    ],
+    "do_not_create_duplicate_labels_for": [
+      "plant_name",
+      "device_name",
+      "alarm_name",
+      "source_alarm_name",
+      "normalized_alarm_code",
+      "source_alarm_code"
+    ],
+    "rule": "Frontend should render labels from Zentrid_UI_Field_Dictionary_v1.json using field_key, not hardcoded text in each screen."
+  }
+}

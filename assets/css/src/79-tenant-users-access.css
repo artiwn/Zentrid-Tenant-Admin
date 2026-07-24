@@ -1,0 +1,361 @@
+/* Zentrid Tenant Admin v143.6 — Users & Access */
+.tenant-users-page-v1436,
+.tenant-users-page-v1436 * { box-sizing: border-box; }
+.tenant-users-page-v1436 { min-width: 0; }
+.tenant-users-context-v1436 { margin-bottom: 18px; }
+.tenant-users-workspace-v1436 { align-items: start; }
+.tenant-users-side-v1436 { position: sticky; top: 18px; }
+.tenant-users-main-v1436 { min-width: 0; overflow: hidden; }
+.tenant-users-kpis-v1436 .kpi-card { min-height: 128px; }
+.tenant-users-flow-v1436 { margin-bottom: 20px; }
+.tenant-users-toolbar-v1436 { padding: 2px 0 14px; }
+.tenant-user-table-v1436 { overflow-x: auto; }
+.tenant-user-table-v1436 .data-head,
+.tenant-user-table-v1436 .data-row {
+  grid-template-columns: minmax(205px,1.18fr) minmax(170px,.92fr) minmax(220px,1.16fr) minmax(145px,.7fr) minmax(175px,.92fr) 118px;
+  min-width: 1060px;
+}
+.tenant-user-table-v1436.compact-table .data-head,
+.tenant-user-table-v1436.compact-table .data-row {
+  grid-template-columns: minmax(185px,1.05fr) minmax(155px,.86fr) minmax(190px,1fr) minmax(130px,.68fr) minmax(160px,.88fr) 110px;
+  min-width: 920px;
+}
+.tenant-user-table-v1436 .data-row > div,
+.tenant-invite-table-v1436 .data-row > div,
+.tenant-permission-table-v1436 .data-row > div { min-width: 0; }
+.tenant-role-grid-v1436 { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-bottom: 20px; }
+.tenant-role-card-v1436 { min-width: 0; padding: 20px; }
+.tenant-role-card-head-v1436 { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.tenant-role-card-head-v1436 h3 { margin: 10px 0 6px; color: #f8fafc; font-size: 18px; line-height: 1.25; overflow-wrap: anywhere; }
+.tenant-role-card-head-v1436 p { margin: 0; color: var(--muted); line-height: 1.5; }
+.tenant-role-card-stats-v1436 { display: grid; grid-template-columns: .7fr 1.4fr .55fr; gap: 10px; margin: 18px 0; }
+.tenant-role-card-stats-v1436 > div { min-width: 0; padding: 12px; border: 1px solid rgba(148,163,184,.14); border-radius: 14px; background: rgba(15,23,42,.35); }
+.tenant-role-card-stats-v1436 span,
+.tenant-role-card-stats-v1436 strong { display: block; overflow-wrap: anywhere; }
+.tenant-role-card-stats-v1436 span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.tenant-role-card-stats-v1436 strong { margin-top: 6px; color: #f8fafc; font-size: 13px; line-height: 1.35; }
+.tenant-role-modules-v1436,
+.tenant-user-modules-v1436 > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.tenant-role-modules-v1436 span,
+.tenant-user-modules-v1436 span { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 9px; border: 1px solid rgba(56,189,248,.2); border-radius: 999px; background: rgba(56,189,248,.08); color: #bae6fd; font-size: 11px; font-weight: 700; line-height: 1.2; }
+.tenant-permission-matrix-v1436 { padding: 20px; overflow: hidden; }
+.tenant-permission-table-v1436 { overflow-x: auto; }
+.tenant-permission-table-v1436 .data-head,
+.tenant-permission-table-v1436 .data-row { grid-template-columns: minmax(170px,1fr) repeat(5,minmax(150px,.9fr)); min-width: 960px; }
+.tenant-invite-table-v1436 { overflow-x: auto; }
+.tenant-invite-table-v1436 .data-head,
+.tenant-invite-table-v1436 .data-row { grid-template-columns: minmax(220px,1.15fr) minmax(190px,1fr) 115px minmax(170px,.9fr) minmax(160px,.8fr) 180px; min-width: 1080px; }
+.tenant-invite-actions-v1436 { display: flex; flex-wrap: nowrap; gap: 8px; }
+.tenant-security-table-v1436 { overflow-x: auto; }
+.tenant-security-table-v1436 .data-head,
+.tenant-security-table-v1436 .data-row { grid-template-columns: minmax(220px,1.05fr) 110px minmax(190px,.9fr) minmax(160px,.75fr) minmax(280px,1.3fr); min-width: 1020px; }
+.tenant-security-summary-v1436 { margin-top: 18px; }
+.tenant-access-activity-v1436 { margin-top: 12px; }
+.tenant-users-drawer-v1436 { width: min(820px,96vw); }
+.tenant-user-detail-header-v1436 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 18px; }
+.tenant-user-detail-header-v1436 small { flex-basis: 100%; color: var(--muted); overflow-wrap: anywhere; }
+.tenant-user-info-v1436 { margin-bottom: 20px; }
+.tenant-user-modules-v1436 { margin: 20px 0; }
+.tenant-user-modules-v1436 h3 { margin: 0 0 10px; color: #f8fafc; }
+.tenant-user-form-v1436 { margin-top: 18px; }
+.tenant-user-form-v1436 select[multiple] { min-height: 154px; padding: 8px; }
+.tenant-invite-steps-v1436 { margin-top: 18px; }
+.tenant-role-overview-table-v1436 { overflow-x: auto; }
+.access-note-v1436 { margin-top: 18px; padding: 14px 16px; border: 1px solid rgba(56,189,248,.18); border-radius: 14px; background: rgba(56,189,248,.07); }
+.access-note-v1436 strong,
+.access-note-v1436 small { display: block; }
+.access-note-v1436 small { margin-top: 5px; color: var(--muted); line-height: 1.45; }
+@media (max-width: 1240px) {
+  .tenant-role-grid-v1436 { grid-template-columns: 1fr; }
+  .tenant-role-card-stats-v1436 { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 900px) {
+  .tenant-users-side-v1436 { position: static; }
+  .tenant-role-card-stats-v1436 { grid-template-columns: 1fr; }
+  .tenant-user-table-v1436 .data-head,
+  .tenant-user-table-v1436 .data-row,
+  .tenant-user-table-v1436.compact-table .data-head,
+  .tenant-user-table-v1436.compact-table .data-row,
+  .tenant-invite-table-v1436 .data-head,
+  .tenant-invite-table-v1436 .data-row,
+  .tenant-security-table-v1436 .data-head,
+  .tenant-security-table-v1436 .data-row,
+  .tenant-permission-table-v1436 .data-head,
+  .tenant-permission-table-v1436 .data-row { grid-template-columns: 1fr; min-width: 0; }
+  .tenant-invite-actions-v1436 { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .tenant-role-card-head-v1436 { flex-direction: column; }
+  .tenant-users-drawer-v1436 { width: 96vw; }
+}
+
+
+/* v144.2 targeted Users & Access layout repairs */
+.tenant-users-page-v1436 .tenant-users-toolbar-v1436 {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 220px) minmax(180px, 220px);
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, .34);
+}
+.tenant-users-page-v1436 .tenant-users-toolbar-v1436 input,
+.tenant-users-page-v1436 .tenant-users-toolbar-v1436 select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+}
+.tenant-user-table-v1436 .row-actions.single-action {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  justify-content: stretch;
+  align-items: center;
+  overflow: hidden;
+}
+.tenant-user-table-v1436 .single-row-action {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+.tenant-access-activity-v1436 .commercial-audit-item {
+  grid-template-columns: minmax(0, 1fr) 118px 104px;
+  gap: 14px;
+  overflow: hidden;
+}
+.tenant-access-activity-v1436 .commercial-audit-inline-main {
+  grid-template-columns: minmax(0, .72fr) minmax(0, .72fr) minmax(0, 1.56fr);
+  gap: 14px;
+  min-width: 0;
+}
+.tenant-access-activity-v1436 .commercial-audit-inline-main > * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tenant-access-activity-v1436 .rbac-audit-time,
+.tenant-access-activity-v1436 > .commercial-audit-item > .badge {
+  justify-self: end;
+  max-width: 100%;
+}
+@media (max-width: 1180px) {
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 input {
+    grid-column: 1 / -1;
+  }
+  .tenant-access-activity-v1436 .commercial-audit-item {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .tenant-access-activity-v1436 .rbac-audit-time,
+  .tenant-access-activity-v1436 > .commercial-audit-item > .badge {
+    justify-self: start;
+  }
+}
+@media (max-width: 700px) {
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 {
+    grid-template-columns: 1fr;
+  }
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 input {
+    grid-column: auto;
+  }
+  .tenant-access-activity-v1436 .commercial-audit-inline-main {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+}
+
+/* v144.3 — native dark Zentrid toolbar controls */
+.tenant-users-toolbar-v1436,
+.tenant-users-page-v1436 .tenant-users-toolbar-v1436 {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(190px, 220px) minmax(190px, 220px);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, .15);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(13, 27, 47, .88), rgba(8, 19, 36, .8));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+.tenant-users-toolbar-v1436 input,
+.tenant-users-toolbar-v1436 select,
+.tenant-users-page-v1436 .tenant-users-toolbar-v1436 input,
+.tenant-users-page-v1436 .tenant-users-toolbar-v1436 select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 13px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 13px;
+  outline: 0;
+  background-color: rgba(5, 14, 29, .88);
+  color: #eaf2fb;
+  color-scheme: dark;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .018);
+  transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+.tenant-users-toolbar-v1436 input::placeholder {
+  color: #71859e;
+  opacity: 1;
+}
+.tenant-users-toolbar-v1436 select {
+  cursor: pointer;
+}
+.tenant-users-toolbar-v1436 select option {
+  background: #091628;
+  color: #eaf2fb;
+}
+.tenant-users-toolbar-v1436 input:hover,
+.tenant-users-toolbar-v1436 select:hover {
+  border-color: rgba(34, 211, 238, .34);
+  background-color: rgba(7, 18, 35, .98);
+}
+.tenant-users-toolbar-v1436 input:focus,
+.tenant-users-toolbar-v1436 select:focus {
+  border-color: rgba(34, 211, 238, .62);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, .11);
+}
+@media (max-width: 1100px) {
+  .tenant-users-toolbar-v1436,
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tenant-users-toolbar-v1436 input,
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 input {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 680px) {
+  .tenant-users-toolbar-v1436,
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 {
+    grid-template-columns: 1fr;
+  }
+  .tenant-users-toolbar-v1436 input,
+  .tenant-users-page-v1436 .tenant-users-toolbar-v1436 input {
+    grid-column: auto;
+  }
+}
+
+/* v144.4 — Access Review Queue row background must cover the Action column */
+.tenant-users-page-v1436 .embedded-panel-v32 > .tenant-user-table-v1436.compact-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.tenant-users-page-v1436 .embedded-panel-v32 > .tenant-user-table-v1436.compact-table > .data-head,
+.tenant-users-page-v1436 .embedded-panel-v32 > .tenant-user-table-v1436.compact-table > .data-row {
+  width: max-content;
+  min-width: 100%;
+}
+.tenant-users-page-v1436 .embedded-panel-v32 > .tenant-user-table-v1436.compact-table > .data-row > .row-actions.single-action {
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+/* v144.5 — Tenant user detail information cards */
+.tenant-users-drawer-v1436 .tenant-user-info-v1436 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.tenant-users-drawer-v1436 .tenant-user-info-v1436 > div {
+  min-width: 0;
+  min-height: 88px;
+  padding: 14px 16px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, .38);
+}
+.tenant-users-drawer-v1436 .tenant-user-info-v1436 > div > span,
+.tenant-users-drawer-v1436 .tenant-user-info-v1436 > div > strong {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.tenant-users-drawer-v1436 .tenant-user-info-v1436 > div > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.tenant-users-drawer-v1436 .tenant-user-info-v1436 > div > strong {
+  margin-top: 8px;
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.45;
+}
+@media (max-width: 640px) {
+  .tenant-users-drawer-v1436 .tenant-user-info-v1436 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Targeted spacing for API-backed security summary metrics */
+.tenant-security-summary-v1436 .information-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.tenant-security-summary-v1436 .information-grid > div {
+  min-width: 0;
+  min-height: 82px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .035);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.tenant-security-summary-v1436 .information-grid span,
+.tenant-security-summary-v1436 .information-grid strong,
+.tenant-security-summary-v1436 .information-grid small {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+.tenant-security-summary-v1436 .information-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.tenant-security-summary-v1436 .information-grid strong {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.3;
+}
+.tenant-security-summary-v1436 .information-grid small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+@media (max-width: 640px) {
+  .tenant-security-summary-v1436 .information-grid {
+    grid-template-columns: 1fr;
+  }
+}

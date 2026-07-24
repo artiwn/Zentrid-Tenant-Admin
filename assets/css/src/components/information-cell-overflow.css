@@ -1,0 +1,4 @@
+.placeholder-grid.compact-cards article,.info-grid > div{min-width:0}
+.placeholder-grid.compact-cards article > span,.placeholder-grid.compact-cards article > strong,.placeholder-grid.compact-cards article > small,.info-grid > div > span,.info-grid > div > strong,.info-grid > div > small{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.placeholder-grid.compact-cards article > span,.placeholder-grid.compact-cards article > strong,.info-grid > div > span,.info-grid > div > strong{white-space:nowrap}
+.placeholder-grid.compact-cards article > small,.info-grid > div > small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}

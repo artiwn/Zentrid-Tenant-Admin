@@ -1,0 +1,90 @@
+/* Zentrid Tenant Admin — Reports v143.4 */
+.tenant-reports-page-v1434 { min-width: 0; }
+.tenant-report-hero-actions-v1434 { display:flex; align-items:stretch; justify-content:flex-end; flex-wrap:wrap; gap:12px; }
+.tenant-reports-context-v1434 .ctx-item:first-child { min-width:260px; }
+.tenant-report-kpis-v1434 { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:14px; }
+.tenant-report-kpis-v1434 .module-card { text-align:left; cursor:pointer; }
+.tenant-report-workspace-v1434 { margin-top:18px; }
+.tenant-report-side-nav-v1434 button { white-space:normal; text-align:left; line-height:1.25; }
+.tenant-report-main-v1434 { min-width:0; }
+.tenant-report-toolbar-v1434 { display:grid; grid-template-columns:minmax(260px,1.3fr) minmax(170px,.75fr) repeat(3,minmax(145px,.65fr)) auto; gap:10px; margin:14px 0 4px; }
+.tenant-report-toolbar-v1434 input,
+.tenant-report-toolbar-v1434 select { min-width:0; }
+.tenant-report-table-v1434 .data-head,
+.tenant-report-table-v1434 .data-row { grid-template-columns:minmax(230px,1.3fr) minmax(120px,.62fr) minmax(180px,.9fr) minmax(180px,.9fr) minmax(150px,.72fr) minmax(190px,.8fr); }
+.tenant-report-row-v1434 { cursor:pointer; }
+.tenant-report-row-v1434.selected { border-color:rgba(34,211,238,.34); background:rgba(34,211,238,.055); }
+.tenant-report-actions-v1434 { justify-content:flex-end; }
+.tenant-report-actions-v1434 button:disabled,
+.tenant-report-preview-actions-v1434 button:disabled { opacity:.45; cursor:not-allowed; }
+.tenant-report-empty-v1434 { grid-column:1 / -1; }
+.tenant-report-template-grid-v1434 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:16px; }
+.tenant-report-template-card-v1434 { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:14px; padding:18px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.035); }
+.tenant-report-template-card-v1434 h3 { margin:8px 0 6px; }
+.tenant-report-template-card-v1434 p { color:var(--muted); line-height:1.5; }
+.tenant-report-template-icon-v1434 { width:48px; height:48px; display:grid; place-items:center; border-radius:15px; background:rgba(34,211,238,.12); color:var(--cyan); font-size:22px; font-weight:900; }
+.tenant-report-template-meta-v1434 { grid-column:1 / -1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:12px; border:1px solid rgba(148,163,184,.13); border-radius:14px; background:rgba(8,18,34,.4); }
+.tenant-report-template-meta-v1434 span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.tenant-report-template-meta-v1434 strong { min-width:0; overflow-wrap:anywhere; }
+.tenant-report-template-actions-v1434 { grid-column:1 / -1; display:flex; justify-content:flex-end; }
+.tenant-report-schedule-table-v1434 .data-head,
+.tenant-report-schedule-table-v1434 .data-row { grid-template-columns:minmax(230px,1.25fr) minmax(180px,.9fr) minmax(120px,.6fr) minmax(180px,.9fr) minmax(150px,.72fr) minmax(180px,.8fr); }
+.tenant-report-activity-v1434 { display:grid; gap:12px; margin-top:16px; }
+.tenant-report-activity-v1434 article { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; padding:15px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.03); }
+.tenant-report-activity-v1434 p { margin:4px 0 6px; color:var(--muted); line-height:1.45; }
+.tenant-report-activity-v1434 small { color:var(--muted); }
+.tenant-report-activity-dot-v1434 { width:12px; height:12px; margin-top:5px; border-radius:50%; background:var(--cyan); box-shadow:0 0 0 5px rgba(34,211,238,.1); }
+.tenant-report-activity-dot-v1434.success { background:#35d08f; box-shadow:0 0 0 5px rgba(53,208,143,.1); }
+.tenant-report-activity-dot-v1434.warning { background:#f6c85f; box-shadow:0 0 0 5px rgba(246,200,95,.1); }
+.tenant-report-activity-dot-v1434.danger { background:#ff6b7a; box-shadow:0 0 0 5px rgba(255,107,122,.1); }
+.tenant-report-builder-modal-v1434 { z-index:120; }
+.tenant-report-builder-card-v1434 { width:min(1040px,96vw); }
+.tenant-report-builder-steps-v1434 { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:18px 0; }
+.tenant-report-builder-steps-v1434 article { display:grid; gap:4px; padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.025); }
+.tenant-report-builder-steps-v1434 article.active { border-color:rgba(34,211,238,.34); background:rgba(34,211,238,.06); }
+.tenant-report-builder-steps-v1434 span { color:var(--cyan); font-size:12px; font-weight:800; }
+.tenant-report-builder-steps-v1434 small { color:var(--muted); }
+.tenant-report-builder-form-v1434 { display:grid; gap:16px; }
+.tenant-report-section-preview-v1434 { display:grid; gap:10px; padding:15px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.025); }
+.tenant-report-section-preview-v1434 > div { display:flex; flex-wrap:wrap; gap:8px; }
+.tenant-report-section-preview-v1434 span { padding:7px 10px; border:1px solid rgba(34,211,238,.2); border-radius:999px; background:rgba(34,211,238,.07); color:#d7f7ff; font-size:12px; }
+.tenant-report-builder-actions-v1434 { position:sticky; bottom:-24px; margin:0 -24px -24px; padding:16px 24px; background:linear-gradient(180deg,rgba(8,18,34,.72),rgba(8,18,34,.98) 28%); border-top:1px solid var(--line); }
+.tenant-report-preview-drawer-v1434 { width:min(620px,96vw); z-index:115; }
+.tenant-report-preview-drawer-v1434 h2 { padding-right:42px; margin:4px 0 12px; overflow-wrap:anywhere; }
+.tenant-report-preview-meta-v1434 { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+.tenant-report-preview-meta-v1434 small { color:var(--muted); }
+.tenant-report-preview-grid-v1434 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.tenant-report-preview-section-v1434 { display:grid; gap:10px; margin-top:18px; }
+.tenant-report-preview-section-v1434 article { display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px; padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.03); }
+.tenant-report-preview-section-v1434 article > span { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:rgba(34,211,238,.1); color:var(--cyan); font-weight:800; }
+.tenant-report-preview-section-v1434 small { display:block; margin-top:4px; color:var(--muted); line-height:1.4; }
+.tenant-report-failure-v1434 { margin-top:16px; padding:14px; border:1px solid rgba(255,107,122,.28); border-radius:14px; background:rgba(255,107,122,.06); }
+.tenant-report-failure-v1434 p { margin-top:5px; color:var(--muted); }
+.tenant-report-send-field-v1434 { display:grid; gap:7px; margin-top:18px; color:var(--muted); font-size:12px; font-weight:700; }
+.tenant-report-send-field-v1434 input { min-height:42px; border:1px solid var(--line); border-radius:12px; padding:0 12px; background:rgba(8,18,34,.74); color:var(--text); }
+.tenant-report-preview-actions-v1434 { position:sticky; bottom:-26px; margin:20px -26px -26px; padding:16px 26px; background:linear-gradient(180deg,rgba(8,18,34,.68),rgba(8,18,34,.99) 32%); border-top:1px solid var(--line); }
+@media (max-width:1280px) {
+  .tenant-report-kpis-v1434 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .tenant-report-toolbar-v1434 { grid-template-columns:minmax(220px,1fr) repeat(2,minmax(150px,.6fr)); }
+  .tenant-report-toolbar-v1434 button { min-height:42px; }
+}
+@media (max-width:980px) {
+  .tenant-report-hero-actions-v1434 { justify-content:flex-start; }
+  .tenant-report-table-v1434 .data-head,
+  .tenant-report-table-v1434 .data-row,
+  .tenant-report-schedule-table-v1434 .data-head,
+  .tenant-report-schedule-table-v1434 .data-row { grid-template-columns:1fr !important; }
+  .tenant-report-template-grid-v1434 { grid-template-columns:1fr; }
+  .tenant-report-toolbar-v1434 { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:700px) {
+  .tenant-report-kpis-v1434,
+  .tenant-report-toolbar-v1434,
+  .tenant-report-builder-steps-v1434,
+  .tenant-report-preview-grid-v1434,
+  .tenant-report-template-meta-v1434 { grid-template-columns:1fr; }
+  .tenant-report-template-card-v1434 { grid-template-columns:1fr; }
+  .tenant-report-template-meta-v1434,
+  .tenant-report-template-actions-v1434 { grid-column:auto; }
+  .tenant-report-builder-actions-v1434 { bottom:-20px; margin:0 -18px -20px; padding:14px 18px; }
+}

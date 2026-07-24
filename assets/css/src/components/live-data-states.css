@@ -1,0 +1,257 @@
+/* Shared live-data status surface for active API-backed screens. */
+.live-data-state {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin: 14px 0 18px;
+  padding: 13px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.52);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.live-data-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.44);
+  color: #cbd5e1;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.live-data-state-content {
+  min-width: 0;
+}
+
+.live-data-state-content strong,
+.live-data-state-content span,
+.live-data-state-meta {
+  display: block;
+}
+
+.live-data-state-content strong {
+  color: #e5f7ff;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.live-data-state-content span {
+  margin-top: 3px;
+  color: #9fb2c8;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.live-data-state-meta {
+  margin-top: 6px;
+  color: #7f98b1;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.live-data-state.loading {
+  border-color: rgba(56, 189, 248, 0.32);
+  background: rgba(14, 116, 144, 0.11);
+}
+
+.live-data-state.loading .live-data-state-icon {
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.32);
+  animation: zentrid-live-state-spin 1.1s linear infinite;
+}
+
+.live-data-state.live {
+  border-color: rgba(45, 212, 191, 0.35);
+  background: rgba(13, 148, 136, 0.12);
+}
+
+.live-data-state.live .live-data-state-icon {
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.34);
+}
+
+.live-data-state.partial,
+.live-data-state.empty,
+.live-data-state.fallback {
+  border-color: rgba(251, 191, 36, 0.36);
+  background: rgba(146, 64, 14, 0.13);
+}
+
+.live-data-state.partial .live-data-state-icon,
+.live-data-state.empty .live-data-state-icon,
+.live-data-state.fallback .live-data-state-icon {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.34);
+}
+
+.live-data-state.timeout {
+  border-color: rgba(249, 115, 22, 0.4);
+  background: rgba(154, 52, 18, 0.15);
+}
+
+.live-data-state.timeout .live-data-state-icon {
+  color: #fdba74;
+  border-color: rgba(249, 115, 22, 0.38);
+}
+
+.live-data-state.unauthorized,
+.live-data-state.forbidden,
+.live-data-state.unavailable {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.17);
+}
+
+.live-data-state.unauthorized .live-data-state-icon,
+.live-data-state.forbidden .live-data-state-icon,
+.live-data-state.unavailable .live-data-state-icon {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.36);
+}
+
+@keyframes zentrid-live-state-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-data-state.loading .live-data-state-icon { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .live-data-state {
+    grid-template-columns: 30px minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .live-data-state-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    font-size: 15px;
+  }
+}
+
+/* Backend DTO contract diagnostics. */
+.contract-diagnostics {
+  display: grid;
+  gap: 10px;
+  margin: -6px 0 18px;
+  padding: 13px 16px;
+  border: 1px solid rgba(251, 191, 36, 0.34);
+  border-radius: 16px;
+  background: rgba(146, 64, 14, 0.12);
+}
+
+.contract-diagnostics.error {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.contract-diagnostics-heading {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.contract-diagnostics-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(251, 191, 36, 0.34);
+  border-radius: 10px;
+  color: #fcd34d;
+  font-weight: 900;
+}
+
+.contract-diagnostics.error .contract-diagnostics-icon {
+  border-color: rgba(248, 113, 113, 0.36);
+  color: #fca5a5;
+}
+
+.contract-diagnostics-heading strong,
+.contract-diagnostics-heading span,
+.contract-diagnostics-list > div strong,
+.contract-diagnostics-list > div span {
+  display: block;
+}
+
+.contract-diagnostics-heading strong {
+  color: #e5f7ff;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.contract-diagnostics-heading span {
+  margin-top: 3px;
+  color: #9fb2c8;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.contract-diagnostics-details summary {
+  cursor: pointer;
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.contract-diagnostics-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contract-diagnostics-list > div {
+  padding: 9px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.contract-diagnostics-list > div strong {
+  color: #e5e7eb;
+  font-size: 12px;
+}
+
+.contract-diagnostics-list > div span,
+.contract-diagnostics-list > div.more {
+  margin-top: 3px;
+  color: #9fb2c8;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.contract-diagnostics-list > div.error {
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+@media (max-width: 640px) {
+  .contract-diagnostics {
+    padding: 12px;
+  }
+
+  .contract-diagnostics-heading {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .contract-diagnostics-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+}

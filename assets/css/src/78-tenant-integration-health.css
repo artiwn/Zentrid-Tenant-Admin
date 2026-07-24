@@ -1,0 +1,223 @@
+/* Zentrid Tenant Admin — Integration Health v144.1 */
+.tenant-integration-page-v1441 { min-width:0; }
+.integration-health-hero-v1441 { align-items:stretch; }
+.integration-health-hero-actions-v1441 { display:flex; align-items:stretch; justify-content:flex-end; flex-wrap:wrap; gap:12px; }
+.integration-health-hero-actions-v1441 .secondary-action { min-width:190px; display:grid; gap:3px; text-align:left; }
+.integration-health-hero-actions-v1441 .secondary-action small { color:var(--muted); font-weight:600; }
+.integration-health-context-v1441 { margin-top:14px; }
+.integration-health-context-v1441 .ctx-item:first-child { min-width:250px; }
+.integration-health-kpis-v1441,
+.integration-health-secondary-kpis-v1441 { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:16px; }
+.integration-health-kpis-v1441 .module-card { min-height:132px; cursor:pointer; text-align:left; }
+.integration-health-kpis-v1441 .module-card:hover { transform:translateY(-2px); border-color:rgba(34,211,238,.28); }
+.integration-health-workspace-v1441 { margin-top:18px; align-items:start; }
+.integration-health-side-v1441 { position:sticky; top:18px; }
+.integration-health-side-v1441 button { white-space:normal; }
+.integration-health-main-v1441 { min-width:0; display:grid; gap:18px; }
+.integration-health-summary-v1441 { margin:0; }
+.integration-health-summary-grid-v1441 { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.integration-health-flow-v1441 { margin-top:18px; }
+.integration-health-dashboard-v1441 { margin:0; }
+.integration-health-health-list-v1441 { display:grid; gap:10px; }
+.integration-health-health-list-v1441 button { width:100%; min-height:60px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.025); color:var(--text); text-align:left; }
+.integration-health-health-list-v1441 button:hover { border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.045); }
+.integration-health-health-list-v1441 small { display:block; margin-top:4px; color:var(--muted); line-height:1.35; }
+.integration-health-coverage-list-v1441 { display:grid; gap:12px; }
+.integration-health-coverage-list-v1441 button { width:100%; display:grid; gap:9px; padding:14px; border:1px solid var(--line); border-radius:15px; background:rgba(255,255,255,.025); color:var(--text); text-align:left; }
+.integration-health-coverage-list-v1441 button:hover { border-color:rgba(34,211,238,.28); background:rgba(34,211,238,.04); }
+.integration-health-coverage-list-v1441 button > div { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.integration-health-coverage-list-v1441 button > div span { color:#d8f8ff; font-weight:900; }
+.integration-health-coverage-list-v1441 small { color:var(--muted); line-height:1.35; }
+.integration-health-coverage-list-v1441 progress,
+.integration-health-coverage-card-v1441 progress { width:100%; height:10px; overflow:hidden; appearance:none; border:0; border-radius:999px; background:rgba(148,163,184,.14); }
+.integration-health-coverage-list-v1441 progress::-webkit-progress-bar,
+.integration-health-coverage-card-v1441 progress::-webkit-progress-bar { background:rgba(148,163,184,.14); border-radius:999px; }
+.integration-health-coverage-list-v1441 progress::-webkit-progress-value,
+.integration-health-coverage-card-v1441 progress::-webkit-progress-value { background:linear-gradient(90deg,#22d3ee,#35d08f); border-radius:999px; }
+.integration-health-coverage-list-v1441 progress::-moz-progress-bar,
+.integration-health-coverage-card-v1441 progress::-moz-progress-bar { background:linear-gradient(90deg,#22d3ee,#35d08f); border-radius:999px; }
+.integration-health-toolbar-v1441 { display:grid; grid-template-columns:minmax(280px,1.2fr) minmax(160px,.7fr) minmax(160px,.7fr) auto; gap:10px; margin:14px 0; }
+.integration-health-toolbar-v1441 input,
+.integration-health-toolbar-v1441 select { min-width:0; }
+.integration-health-table-v1441 .data-head,
+.integration-health-table-v1441 .data-row { grid-template-columns:minmax(220px,1.25fr) minmax(170px,.82fr) minmax(230px,1.05fr) minmax(135px,.62fr) minmax(170px,.78fr) minmax(92px,.42fr); }
+.integration-health-table-v1441 .data-row { cursor:pointer; }
+.integration-health-table-v1441 .data-row:hover { border-color:rgba(34,211,238,.27); background:rgba(34,211,238,.04); }
+.integration-health-table-v1441 .row-actions { justify-content:flex-end; }
+.integration-health-sync-table-v1441 .data-head,
+.integration-health-sync-table-v1441 .data-row { grid-template-columns:minmax(220px,1.1fr) minmax(140px,.65fr) minmax(180px,.82fr) minmax(120px,.54fr) minmax(180px,.82fr) minmax(100px,.46fr); }
+.integration-health-sync-table-v1441 .data-row { cursor:pointer; }
+.integration-health-failure-table-v1441 .data-head,
+.integration-health-failure-table-v1441 .data-row { grid-template-columns:minmax(280px,1.3fr) minmax(190px,.86fr) minmax(105px,.45fr) minmax(165px,.72fr) minmax(120px,.52fr) minmax(180px,.78fr); }
+.integration-health-mapping-table-v1441 .data-head,
+.integration-health-mapping-table-v1441 .data-row { grid-template-columns:minmax(140px,.66fr) minmax(160px,.72fr) minmax(190px,.86fr) minmax(90px,.38fr) minmax(160px,.72fr) minmax(110px,.48fr); }
+.integration-health-policy-v1441 { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:start; margin-top:16px; padding:14px; border:1px solid rgba(34,211,238,.18); border-radius:15px; background:rgba(34,211,238,.045); }
+.integration-health-policy-v1441 p { margin:0; color:var(--muted); line-height:1.5; }
+.integration-health-activity-v1441 { margin-top:2px; }
+.integration-health-activity-v1441 .commercial-audit-marker-v78.info { background:#22d3ee; box-shadow:0 0 0 5px rgba(34,211,238,.1); }
+.integration-health-activity-v1441 .commercial-audit-marker-v78.warning { background:#f6c85f; box-shadow:0 0 0 5px rgba(246,200,95,.1); }
+.integration-health-activity-v1441 .commercial-audit-marker-v78.danger { background:#ff6b7a; box-shadow:0 0 0 5px rgba(255,107,122,.1); }
+.integration-health-drawer-v1441 { width:min(720px,96vw); z-index:116; }
+.integration-health-drawer-v1441 h2 { padding-right:48px; margin:5px 0 12px; overflow-wrap:anywhere; }
+.integration-health-drawer-meta-v1441 { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:18px; }
+.integration-health-drawer-meta-v1441 small { color:var(--muted); }
+.integration-health-drawer-section-v1441 { display:grid; gap:12px; margin-top:14px; padding:16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.025); }
+.integration-health-drawer-section-v1441 h3 { margin:0; }
+.integration-health-drawer-section-v1441 p { margin:0; color:var(--muted); line-height:1.55; }
+.integration-health-drawer-grid-v1441 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.integration-health-coverage-card-v1441 { display:grid; gap:10px; }
+.integration-health-coverage-card-v1441 > div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.integration-health-coverage-card-v1441 > div span,
+.integration-health-coverage-card-v1441 small { color:var(--muted); }
+.integration-health-drawer-actions-v1441 { position:sticky; bottom:-26px; margin:20px -26px -26px; padding:16px 26px; background:linear-gradient(180deg,rgba(8,18,34,.72),rgba(8,18,34,.99) 32%); border-top:1px solid var(--line); }
+@media (max-width:1280px) {
+  .integration-health-kpis-v1441,
+  .integration-health-secondary-kpis-v1441,
+  .integration-health-summary-grid-v1441 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .integration-health-toolbar-v1441 { grid-template-columns:minmax(220px,1fr) repeat(2,minmax(150px,.72fr)); }
+  .integration-health-toolbar-v1441 button { grid-column:1 / -1; }
+}
+@media (max-width:1040px) {
+  .integration-health-side-v1441 { position:static; }
+  .integration-health-table-v1441 .data-head,
+  .integration-health-table-v1441 .data-row,
+  .integration-health-sync-table-v1441 .data-head,
+  .integration-health-sync-table-v1441 .data-row,
+  .integration-health-failure-table-v1441 .data-head,
+  .integration-health-failure-table-v1441 .data-row,
+  .integration-health-mapping-table-v1441 .data-head,
+  .integration-health-mapping-table-v1441 .data-row { grid-template-columns:1fr !important; }
+}
+@media (max-width:760px) {
+  .integration-health-hero-actions-v1441 { justify-content:flex-start; }
+  .integration-health-kpis-v1441,
+  .integration-health-secondary-kpis-v1441,
+  .integration-health-summary-grid-v1441,
+  .integration-health-toolbar-v1441,
+  .integration-health-drawer-grid-v1441 { grid-template-columns:1fr; }
+  .integration-health-policy-v1441 { grid-template-columns:1fr; }
+  .integration-health-drawer-actions-v1441 { bottom:-20px; margin:20px -18px -20px; padding:14px 18px; }
+}
+
+/* v144.3 — complete Integration Health card and table containment */
+.integration-health-summary-grid-v1441 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.integration-health-summary-grid-v1441 > div {
+  min-width: 0;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(15, 29, 50, .82), rgba(10, 21, 39, .7));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+.integration-health-summary-grid-v1441 > div > span,
+.integration-health-summary-grid-v1441 > div > strong,
+.integration-health-summary-grid-v1441 > div > small {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.integration-health-summary-grid-v1441 > div > span {
+  color: #8398b2;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .075em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.integration-health-summary-grid-v1441 > div > strong {
+  color: #f7fbff;
+  font-size: 18px;
+  line-height: 1.25;
+}
+.integration-health-summary-grid-v1441 > div > small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.integration-health-sync-table-v1441,
+.integration-health-coverage-list-v1441 {
+  margin-top: 16px;
+}
+.integration-health-table-v1441,
+.integration-health-sync-table-v1441,
+.integration-health-failure-table-v1441,
+.integration-health-mapping-table-v1441 {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: visible;
+  overscroll-behavior-inline: contain;
+}
+.integration-health-table-v1441 > .data-head,
+.integration-health-table-v1441 > .data-row {
+  width: 100%;
+  min-width: 1040px;
+  box-sizing: border-box;
+}
+.integration-health-sync-table-v1441 > .data-head,
+.integration-health-sync-table-v1441 > .data-row {
+  width: 100%;
+  min-width: 1000px;
+  box-sizing: border-box;
+}
+.integration-health-failure-table-v1441 > .data-head,
+.integration-health-failure-table-v1441 > .data-row {
+  width: 100%;
+  min-width: 1080px;
+  box-sizing: border-box;
+}
+.integration-health-mapping-table-v1441 > .data-head,
+.integration-health-mapping-table-v1441 > .data-row {
+  width: 100%;
+  min-width: 920px;
+  box-sizing: border-box;
+}
+.tenant-integration-page-v1441 .data-row.clickable-row {
+  max-width: 100%;
+  align-items: center;
+  overflow: visible;
+}
+.tenant-integration-page-v1441 .data-row.clickable-row > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.tenant-integration-page-v1441 .data-row.clickable-row strong,
+.tenant-integration-page-v1441 .data-row.clickable-row small,
+.tenant-integration-page-v1441 .data-row.clickable-row span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 1280px) {
+  .integration-health-summary-grid-v1441 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1040px) {
+  .integration-health-table-v1441 > .data-head,
+  .integration-health-table-v1441 > .data-row,
+  .integration-health-sync-table-v1441 > .data-head,
+  .integration-health-sync-table-v1441 > .data-row,
+  .integration-health-failure-table-v1441 > .data-head,
+  .integration-health-failure-table-v1441 > .data-row,
+  .integration-health-mapping-table-v1441 > .data-head,
+  .integration-health-mapping-table-v1441 > .data-row {
+    min-width: 0;
+  }
+}
+@media (max-width: 700px) {
+  .integration-health-summary-grid-v1441 {
+    grid-template-columns: 1fr;
+  }
+}

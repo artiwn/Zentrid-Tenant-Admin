@@ -1,0 +1,149 @@
+.fleet-form-readiness {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--primary) 8%);
+  min-width: 0;
+}
+
+.fleet-form-readiness-badge,
+.fleet-form-dirty-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.fleet-form-readiness-badge {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 13%, transparent);
+}
+
+.fleet-form-readiness-local .fleet-form-readiness-badge {
+  color: var(--warning-text, #8a5a00);
+  background: color-mix(in srgb, var(--warning, #f59e0b) 16%, transparent);
+}
+
+.fleet-form-readiness-unavailable .fleet-form-readiness-badge,
+.fleet-form-readiness-readonly .fleet-form-readiness-badge {
+  color: var(--danger-text, #9b1c1c);
+  background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent);
+}
+
+.fleet-form-readiness-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fleet-form-readiness-copy strong,
+.fleet-form-readiness-copy small {
+  overflow-wrap: anywhere;
+}
+
+.fleet-form-readiness-copy small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.fleet-form-dirty-state {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+}
+
+form.is-dirty .fleet-form-dirty-state {
+  color: var(--warning-text, #8a5a00);
+  background: color-mix(in srgb, var(--warning, #f59e0b) 16%, transparent);
+}
+
+.fleet-form-validation-summary {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  border: 1px solid color-mix(in srgb, var(--danger, #dc2626) 38%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger, #dc2626) 7%, var(--panel));
+}
+
+.fleet-form-validation-summary[hidden] { display: none !important; }
+.fleet-form-validation-summary strong { display: block; margin-bottom: 6px; }
+.fleet-form-validation-summary ul { margin: 0; padding-left: 20px; }
+.fleet-form-validation-summary li + li { margin-top: 4px; }
+
+.fleet-form-contract-preview {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 4px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--primary) 4%);
+  overflow: hidden;
+}
+
+.fleet-form-contract-preview summary {
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  user-select: none;
+}
+
+.fleet-form-contract-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 0 14px 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.fleet-form-contract-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fleet-form-contract-preview pre {
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--page, #f5f7fb) 82%, var(--panel));
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .fleet-form-readiness {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .fleet-form-readiness-copy {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .fleet-form-readiness {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .fleet-form-readiness-copy,
+  .fleet-form-dirty-state {
+    grid-column: 1;
+  }
+  .fleet-form-dirty-state { justify-self: start; }
+}

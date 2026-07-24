@@ -1,0 +1,12 @@
+/* Security policy visibility: unsafe dynamic navigation is disabled without disturbing layout. */
+[data-fleet-url-blocked="true"] {
+  cursor: not-allowed !important;
+  opacity: .62;
+  text-decoration: line-through;
+}
+
+[data-fleet-external-link="true"][target="_blank"]::after {
+  content: " ↗";
+  font-size: .82em;
+  opacity: .72;
+}

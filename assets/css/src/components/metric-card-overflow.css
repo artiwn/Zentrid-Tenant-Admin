@@ -1,0 +1,9 @@
+/* KPI overflow */
+.kpi-card > span,
+.kpi-card > strong,
+.kpi-card > small { overflow: hidden; text-overflow: ellipsis; }
+.kpi-card > span,
+.kpi-card > strong { white-space: nowrap; }
+.kpi-card > small {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
