@@ -1,0 +1,17 @@
+Zentrid Tenant Admin — local run
+
+Recommended (API proxy + compiled app):
+  npm ci
+  npm start
+  Open: http://localhost:5050
+
+Live Server is also supported by this FIXED package:
+  open the project root with Live Server
+  e.g. http://127.0.0.1:5500/index.html
+
+Important for real API calls while using Live Server:
+  the frontend routes local API traffic to http://localhost:5050,
+  so start the local proxy with `npm start` as well.
+
+The root now contains compiled assets/js/*.js and assets/css/styles.css,
+so Live Server no longer returns HTML 404 pages for CSS/JS assets.

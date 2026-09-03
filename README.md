@@ -167,3 +167,19 @@ The Vercel build intentionally excludes `dist/proxy-server.js`; the local build 
 ```bash
 npm start
 ```
+
+## Runtime / Freshness v1
+- Tenant data freshness upgraded to timestamp-based record evaluation: Fresh / Stale / Very stale / Unknown.
+- Backend freshness contradictions are detected when status and timestamps disagree.
+- Plants, Devices and Alerts filters now emit server-query refreshes instead of being limited to the current browser page.
+- Device filters pass search/type/status/plant scope to repositories; Alerts pass search/severity/status/vendor/plant/device context; Plants pass search/status/vendor.
+- Existing Tenant-specific renderers and navigation are preserved.
+
+## v1.44.6 — Tenant Device lifecycle / documents / audit
+
+- Device Detail lifecycle actions now call DeviceRegistry activate / deactivate / archive endpoints through the shared mutation runtime.
+- Device Documents now support multipart upload, download and delete using DeviceRegistry document endpoints. Existing document metadata returned with a device is merged with the current-session upload cache.
+- Device Audit is lazy-loaded from `GET /api/admin/devices/{id}/audit` and rendered in Audit / Activity sections.
+- Tenant frontend permissions now align with the already-wired Client/Plant lifecycle actions and allow tenant-scoped lifecycle/document operations for Clients, Plants and Devices. Backend RBAC remains authoritative.
+- `POST /api/admin/devices/{id}/commands` remains intentionally disabled in the UI because the current Swagger snapshot exposes the endpoint but not a request DTO; FleetOS does not invent command payloads.
+- Root Live Server runtime is synchronized with `dist` after build.

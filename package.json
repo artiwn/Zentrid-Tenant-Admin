@@ -1,6 +1,6 @@
 {
   "name": "zentrid-tenant-admin",
-  "version": "1.44.5",
+  "version": "1.44.6",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -12,7 +12,7 @@
     "copy:static": "node scripts/copy-static.js",
     "check:standalone": "node scripts/check-standalone.js",
     "check:dist": "node scripts/check-dist.js",
-    "build": "npm run clean && npm run typecheck && npm run build:browser && npm run build:server && npm run copy:static && npm run build:css && npm run build:release && npm run check:login-release-assets && npm run check:overview && npm run check:clients && npm run check:plants && npm run check:devices && npm run check:alerts && npm run check:runtime-recovery && npm run check:details && npm run check:uuid-details && npm run check:detail-observer-safety && npm run check:telemetry && npm run check:energy && npm run check:finance && npm run check:reports && npm run check:integrations && npm run check:users && npm run check:settings && npm run check:settings-runtime && npm run check:release-integrity && npm run check:standalone && npm run check:dist",
+    "build": "npm run clean && npm run typecheck && npm run build:browser && npm run build:server && npm run copy:static && npm run build:css && npm run build:release && npm run check:login-release-assets && npm run check:overview && npm run check:clients && npm run check:plants && npm run check:devices && npm run check:alerts && npm run check:runtime-recovery && npm run check:details && npm run check:lifecycle-documents && npm run check:device-lifecycle && npm run check:uuid-details && npm run check:detail-observer-safety && npm run check:telemetry && npm run check:energy && npm run check:finance && npm run check:reports && npm run check:integrations && npm run check:users && npm run check:settings && npm run check:settings-runtime && npm run check:release-integrity && npm run check:standalone && npm run check:dist",
     "start": "npm run build && node dist/proxy-server.js",
     "dev": "npm run start",
     "build:release": "node scripts/generate-release-manifest.js --target=local",
@@ -40,7 +40,9 @@
     "check:vercel-dist": "node scripts/check-dist.js --target=vercel",
     "build:release:vercel": "node scripts/generate-release-manifest.js --target=vercel",
     "build:vercel": "npm run clean && npm run typecheck && npm run build:browser && npm run copy:static && npm run build:css && npm run build:release:vercel && npm run check:vercel-config && npm run check:vercel-dist",
-    "verify:vercel": "npm run check:registry && npm run build:vercel"
+    "verify:vercel": "npm run check:registry && npm run build:vercel",
+    "check:lifecycle-documents": "node scripts/check-lifecycle-documents.js",
+    "check:device-lifecycle": "node scripts/check-device-lifecycle.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -55,5 +57,5 @@
   },
   "packageManager": "npm@11.16.0",
   "zentridWorkspace": "tenant-admin-standalone",
-  "zentridRelease": "v144.5"
+  "zentridRelease": "v144.6"
 }
