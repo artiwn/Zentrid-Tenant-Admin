@@ -4,6 +4,7 @@ const root = path.resolve(__dirname, '..');
 const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
 const alerts = read('assets/js/alerts.ts');
 const liveApiUi = read('assets/js/live-api-ui.ts');
+const mutations = read('assets/js/api-mutations.ts');
 const listHtml = read('pages/alerts.html');
 const detailHtml = read('pages/alert-detail.html');
 const manifest = JSON.parse(read('assets/css/src/manifest.json'));
@@ -33,7 +34,9 @@ const required = [
   'return alertRegistryRecords();',
   'return scoped.map(alert => normalizeAlertTenant(alert, tenantName));',
   'function renderAlertDetailUnavailable(message =',
-  'data-alert-api-unavailable',
+  'data-alert-acknowledge',
+  'data-alert-contract-pending',
+  'function acknowledgeAlertViaRegistry',
   'No SOP checklist returned',
   'No activity records returned',
   'Tenant Admin · Operations',
@@ -91,6 +94,20 @@ const detailMockForbidden = [
 for (const marker of detailMockForbidden) {
   if (alerts.includes(marker) || liveApiUi.includes(marker)) throw new Error(`Alert Detail still exposes mock behavior: ${marker}`);
 }
+
+
+if (!detailHtml.includes('assets/js/api-mutations.js') || !listHtml.includes('assets/js/api-mutations.js')) throw new Error('Alert pages do not load the shared API mutation layer.');
+for (const marker of [
+  'type ZentridMutationAlertModule',
+  "descriptor('alert.acknowledge'",
+  'ZentridPlatformAPI.adminAlerts.acknowledge',
+  'ZentridPlatformAPI.adminAlerts.assign',
+  'ZentridPlatformAPI.adminAlerts.escalate',
+  'ZentridPlatformAPI.adminAlerts.resolve',
+  'ZentridPlatformAPI.adminAlerts.createTask'
+]) if (!mutations.includes(marker)) throw new Error(`Alert mutation marker missing: ${marker}`);
+if (alerts.includes('data-alert-api-unavailable')) throw new Error('Alert Detail still uses the obsolete API-unavailable mutation marker.');
+if (!alerts.includes('No guessed payload is sent')) throw new Error('Alert Detail must explain why DTO-dependent actions remain disabled.');
 
 if (!listHtml.includes('assets/js/alerts.js')) throw new Error('Alerts page does not use the canonical alert renderer.');
 if (!detailHtml.includes('assets/js/alerts.js')) throw new Error('Alert Detail does not use the canonical alert renderer.');

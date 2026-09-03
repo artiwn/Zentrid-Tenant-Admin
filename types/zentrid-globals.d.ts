@@ -254,7 +254,7 @@ interface FleetContractMapperContext {
   integrationVendor(value: unknown): string;
   integrationSoftware(value: unknown): string;
 }
-type FleetContractEntity = 'clients' | 'plants' | 'devices' | 'alerts' | 'integrations';
+type FleetContractEntity = 'clients' | 'tenants' | 'plants' | 'devices' | 'alerts' | 'telemetry' | 'integrations';
 type FleetContractSeverity = 'error' | 'warning';
 interface FleetContractIssue {
   entity: FleetContractEntity;
@@ -454,6 +454,23 @@ interface FleetRepositoryReadOptions {
   timeoutMs?: number;
   page?: number;
   pageSize?: number;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+  search?: string;
+  deviceType?: string;
+  deviceStatus?: string;
+  plantId?: string;
+  deviceId?: string;
+  metric?: string;
+  tenantId?: string;
+  severity?: string;
+  alertStatus?: string;
+  status?: string;
+  tenant?: string;
+  plant?: string;
+  vendor?: string;
+  cursor?: string;
+  format?: string;
   signal?: AbortSignal;
 }
 interface FleetRepositoryCacheSnapshotEntry {
@@ -510,6 +527,7 @@ interface FleetAPIRepositoriesApi {
   plants: FleetEntityReadRepositoryApi;
   devices: FleetEntityReadRepositoryApi;
   alerts: FleetEntityReadRepositoryApi;
+  telemetry: FleetEntityReadRepositoryApi;
   integrations: FleetIntegrationReadRepositoryApi;
 }
 declare const FleetAPIRepositories: FleetAPIRepositoriesApi;
@@ -551,13 +569,48 @@ type FleetMutationResult<T = unknown> = FleetMutationSuccess<T> | FleetMutationF
 interface FleetMutationCreateApi {
   create(payload: unknown): Promise<FleetMutationResult>;
 }
+interface FleetMutationClientApi extends FleetMutationCreateApi {
+  update(id: string, payload: unknown): Promise<FleetMutationResult>;
+  activate(id: string): Promise<FleetMutationResult>;
+  deactivate(id: string): Promise<FleetMutationResult>;
+  suspend(id: string): Promise<FleetMutationResult>;
+  archive(id: string): Promise<FleetMutationResult>;
+  uploadDocument(id: string, payload: FormData): Promise<FleetMutationResult>;
+  deleteDocument(id: string, documentId: string): Promise<FleetMutationResult>;
+}
+interface FleetMutationPlantApi extends FleetMutationCreateApi {
+  update(id: string, payload: unknown): Promise<FleetMutationResult>;
+  activate(id: string): Promise<FleetMutationResult>;
+  deactivate(id: string): Promise<FleetMutationResult>;
+  archive(id: string): Promise<FleetMutationResult>;
+  uploadDocument(id: string, payload: FormData): Promise<FleetMutationResult>;
+  deleteDocument(id: string, documentId: string): Promise<FleetMutationResult>;
+}
+interface FleetMutationDeviceApi {
+  activate(id: string): Promise<FleetMutationResult>;
+  deactivate(id: string): Promise<FleetMutationResult>;
+  archive(id: string): Promise<FleetMutationResult>;
+  uploadDocument(id: string, payload: FormData): Promise<FleetMutationResult>;
+  deleteDocument(id: string, documentId: string): Promise<FleetMutationResult>;
+  command(id: string, payload: unknown): Promise<FleetMutationResult>;
+}
+interface FleetMutationAlertApi {
+  acknowledge(id: string, payload: unknown): Promise<FleetMutationResult>;
+  assign(id: string, payload: unknown): Promise<FleetMutationResult>;
+  escalate(id: string, payload: unknown): Promise<FleetMutationResult>;
+  resolve(id: string, payload: unknown): Promise<FleetMutationResult>;
+  createTask(id: string, payload?: unknown): Promise<FleetMutationResult>;
+  updateSop(id: string, payload: unknown): Promise<FleetMutationResult>;
+}
 interface FleetAPIMutationsApi {
   run<T>(descriptor: { action: string; path: string; method: string; entities: FleetContractEntity[]; successMessage: string }, operation: () => Promise<T>): Promise<FleetMutationResult<T>>;
   isSuccess<T>(result: FleetMutationResult<T>): result is FleetMutationSuccess<T>;
   isFailure<T>(result: FleetMutationResult<T>): result is FleetMutationFailure;
   unwrap<T>(result: FleetMutationResult<T>): T;
-  clients: FleetMutationCreateApi;
-  plants: FleetMutationCreateApi;
+  clients: FleetMutationClientApi;
+  plants: FleetMutationPlantApi;
+  devices: FleetMutationDeviceApi;
+  alerts: FleetMutationAlertApi;
 }
 declare const FleetAPIMutations: FleetAPIMutationsApi;
 interface Window { FleetAPIMutations: FleetAPIMutationsApi; }
@@ -644,7 +697,7 @@ declare const FleetRuntimeStability: FleetRuntimeStabilityApi;
 interface Window { FleetRuntimeStability: FleetRuntimeStabilityApi; }
 
 type FleetFreshnessStatus = 'live' | 'cached' | 'refreshing' | 'stale' | 'partial' | 'unavailable';
-type FleetFreshnessResource = 'overview' | 'clients' | 'tenants' | 'plants' | 'devices' | 'alerts' | 'integrations' | 'client-detail' | 'tenant-detail' | 'plant-detail' | 'device-detail' | 'alert-detail' | 'integration-detail' | 'unknown';
+type FleetFreshnessResource = 'overview' | 'clients' | 'tenants' | 'plants' | 'devices' | 'alerts' | 'telemetry' | 'integrations' | 'client-detail' | 'tenant-detail' | 'plant-detail' | 'device-detail' | 'alert-detail' | 'integration-detail' | 'unknown';
 interface FleetFreshnessSyncInput {
   liveState: string;
   title?: string;
@@ -668,12 +721,26 @@ interface FleetFreshnessSnapshot {
   online: boolean;
   visible: boolean;
 }
+type FleetRecordFreshnessKind = 'plant' | 'device' | 'telemetry' | 'generic';
+type FleetRecordFreshnessStatus = 'fresh' | 'stale' | 'very-stale' | 'unknown';
+interface FleetRecordFreshnessResult {
+  status: FleetRecordFreshnessStatus;
+  label: string;
+  tone: string;
+  ageMs: number | null;
+  ageLabel: string;
+  timestamp: string | null;
+  basis: string;
+  backendStatus: string;
+  contradictsBackend: boolean;
+}
 interface FleetDataFreshnessApi {
   sync(input: FleetFreshnessSyncInput): FleetFreshnessSnapshot;
   markRefreshComplete(success?: boolean): void;
   requestRefresh(reason: 'manual' | 'retry' | 'auto'): void;
   setAutoRefresh(intervalMs: number): void;
   snapshot(resource?: FleetFreshnessResource): FleetFreshnessSnapshot;
+  evaluateRecord(record: unknown, kind?: FleetRecordFreshnessKind): FleetRecordFreshnessResult;
   inferResource(): FleetFreshnessResource;
   intervals: number[];
 }
@@ -799,3 +866,20 @@ interface FleetBrowserSecurityApi {
 }
 declare const FleetBrowserSecurity: FleetBrowserSecurityApi;
 interface Window { FleetBrowserSecurity: FleetBrowserSecurityApi; }
+
+
+// Compatibility aliases for the shared API foundation synchronized from Global Admin.
+type ZentridLegacyCompat = FleetLegacyCompat;
+interface ZentridContractMapperContext extends FleetContractMapperContext {}
+interface ZentridRepositoryMapperContext extends FleetRepositoryMapperContext {}
+type ZentridApiDiagnosticPagination = FleetApiDiagnosticPagination;
+declare const ZentridAPIDiagnostics: FleetApiDiagnosticsApi;
+declare const ZentridAPIContracts: any;
+declare const ZentridAPIRepositories: any;
+declare const ZentridAPIMutations: any;
+interface Window {
+  ZentridAPI?: any;
+  ZentridAPIContracts?: any;
+  ZentridAPIRepositories?: any;
+  ZentridAPIMutations?: any;
+}
