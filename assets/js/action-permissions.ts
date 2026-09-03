@@ -1,4 +1,4 @@
-type FleetPermissionAction = 'view' | 'create' | 'edit' | 'activate' | 'deactivate' | 'suspend' | 'archive' | 'export';
+type FleetPermissionAction = 'view' | 'create' | 'edit' | 'activate' | 'deactivate' | 'suspend' | 'archive' | 'document' | 'export' | 'acknowledge' | 'assign' | 'escalate' | 'resolve' | 'task';
 type FleetPermissionResource = 'client' | 'plant' | 'device' | 'integration' | 'alert' | 'telemetry' | 'energy' | 'finance' | 'report' | 'user' | 'settings' | 'generic';
 type FleetPermissionContext = {
   action: FleetPermissionAction;
@@ -29,13 +29,13 @@ type FleetPermissionApi = {
 };
 
 const FleetActionPermissions: FleetPermissionApi = (() => {
-  const mutableActions = new Set<FleetPermissionAction>(['create', 'edit', 'activate', 'deactivate', 'suspend', 'archive']);
+  const mutableActions = new Set<FleetPermissionAction>(['create', 'edit', 'activate', 'deactivate', 'suspend', 'archive', 'document', 'acknowledge', 'assign', 'escalate', 'resolve', 'task']);
   const policy: Record<FleetPermissionResource, FleetPermissionAction[]> = {
-    client: ['view', 'create', 'edit', 'export'],
-    plant: ['view', 'create', 'edit', 'export'],
-    device: ['view', 'export'],
+    client: ['view', 'create', 'edit', 'activate', 'deactivate', 'suspend', 'archive', 'document', 'export'],
+    plant: ['view', 'create', 'edit', 'activate', 'deactivate', 'archive', 'document', 'export'],
+    device: ['view', 'activate', 'deactivate', 'archive', 'document', 'export'],
     integration: ['view', 'export'],
-    alert: ['view', 'edit', 'export'],
+    alert: ['view', 'edit', 'export', 'acknowledge', 'assign', 'escalate', 'resolve', 'task'],
     telemetry: ['view', 'export'],
     energy: ['view', 'export'],
     finance: ['view', 'export'],

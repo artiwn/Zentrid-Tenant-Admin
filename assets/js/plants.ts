@@ -112,6 +112,17 @@ function plantStatusCls(v: unknown): string {
   if (value.includes('warning') || value.includes('delayed')) return 'warning';
   return 'success';
 }
+function plantFreshnessEscape(value: unknown): string { return String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[character] || character)); }
+function plantUiFreshness(p: ZentridPlant): FleetRecordFreshnessResult {
+  return window.FleetDataFreshness?.evaluateRecord(p, 'plant') || { status:'unknown', label:'Unknown', tone:'neutral', ageMs:null, ageLabel:'Timestamp unavailable', timestamp:null, basis:'Last data', backendStatus:String(p.freshness || ''), contradictsBackend:false };
+}
+function plantFreshnessInline(p: ZentridPlant): string {
+  const freshness = plantUiFreshness(p);
+  const backend = freshness.backendStatus || String(p.freshness || '—');
+  const mismatch = freshness.contradictsBackend ? ' · backend status conflicts with timestamp' : '';
+  const title = `${freshness.basis}: ${freshness.timestamp || 'unavailable'}${backend && backend !== '—' ? ` · Backend: ${backend}` : ''}${mismatch}`;
+  return `<small title="${plantFreshnessEscape(title)}">${plantFreshnessEscape(freshness.label)} · ${plantFreshnessEscape(freshness.ageLabel)}${freshness.contradictsBackend ? ' · mismatch' : ''}</small>`;
+}
 function selectedPlant(): ZentridPlant {
   const list = plants();
   const id = localStorage.getItem('zentrid_selected_plant');
@@ -135,7 +146,7 @@ function plantRows(list: ZentridPlant[]): string {
     ? { total: serverPagination.totalCount, pages: serverPagination.totalPages, page: serverPagination.page, start: (serverPagination.page - 1) * serverPagination.pageSize, end: Math.min(serverPagination.page * serverPagination.pageSize, serverPagination.totalCount), rows: list }
     : plantPageSlice(list);
   const pager = serverPagination ? window.FleetRegistryQuery?.pagerHtml('plants', list.length) || '' : plantPagerHtml(state);
-  return `${pager}<div class="data-table plant-table"><div class="data-head"><span>Plant</span><span>Client / Source</span><span>Location</span><span>Capacity</span><span>Status</span><span>Actions</span></div>${state.rows.map(p => `<div class="data-row" data-id="${p.id}"><div>${FleetDataSource.badge(p, 'plant')}<strong>${p.name}</strong><small>${p.code}<br>${p.id}</small></div><div><strong>${p.owner || currentTenantScope()}</strong><small>${p.vendor} · ${p.integration}</small></div><div><strong>${p.country}</strong><small>${p.region} · ${p.city}</small></div><div><strong>${p.capacityDc} MWp DC</strong><small>${p.capacityAc} MW AC · ${p.devices} devices</small></div><div><span class="badge ${plantStatusCls(p.status)}">${p.status}</span><small>${p.alerts} alerts · ${p.lastData}</small></div><div class="row-actions"><button data-action="open" data-permission-action="view" data-permission-resource="plant" data-permission-status="${p.status}" data-permission-origin="${FleetDataSource.origin(p, 'plant')}">Open</button><button data-action="edit" data-permission-action="edit" data-permission-resource="plant" data-permission-status="${p.status}" data-permission-origin="${FleetDataSource.origin(p, 'plant')}" data-permission-update-available="false" data-permission-local-override="true">Edit</button><button data-action="devices" data-permission-action="view" data-permission-resource="plant">Devices</button><button data-action="telemetry" data-permission-action="view" data-permission-resource="plant">Telemetry</button><button data-action="alerts" data-permission-action="view" data-permission-resource="plant">Alerts</button></div></div>`).join('')}</div>${pager}`;
+  return `${pager}<div class="data-table plant-table"><div class="data-head"><span>Plant</span><span>Client / Source</span><span>Location</span><span>Capacity</span><span>Status</span><span>Actions</span></div>${state.rows.map(p => `<div class="data-row" data-id="${p.id}"><div>${FleetDataSource.badge(p, 'plant')}<strong>${p.name}</strong><small>${p.code}<br>${p.id}</small></div><div><strong>${p.owner || currentTenantScope()}</strong><small>${p.vendor} · ${p.integration}</small></div><div><strong>${p.country}</strong><small>${p.region} · ${p.city}</small></div><div><strong>${p.capacityDc} MWp DC</strong><small>${p.capacityAc} MW AC · ${p.devices} devices</small></div><div><span class="badge ${plantStatusCls(p.status)}">${p.status}</span><small>${p.alerts} alerts · ${p.lastData}</small>${plantFreshnessInline(p)}</div><div class="row-actions"><button data-action="open" data-permission-action="view" data-permission-resource="plant" data-permission-status="${p.status}" data-permission-origin="${FleetDataSource.origin(p, 'plant')}">Open</button><button data-action="edit" data-permission-action="edit" data-permission-resource="plant" data-permission-status="${p.status}" data-permission-origin="${FleetDataSource.origin(p, 'plant')}" data-permission-update-available="false" data-permission-local-override="true">Edit</button><button data-action="devices" data-permission-action="view" data-permission-resource="plant">Devices</button><button data-action="telemetry" data-permission-action="view" data-permission-resource="plant">Telemetry</button><button data-action="alerts" data-permission-action="view" data-permission-resource="plant">Alerts</button></div></div>`).join('')}</div>${pager}`;
 }
 function assetClientRecords(): ZentridAssetClient[] {
   const rows = Array.isArray(window.ZentridLiveClients) ? window.ZentridLiveClients as Record<string, unknown>[] : [];
@@ -707,7 +718,7 @@ function wirePlants(){
     if (s !== 'All Statuses') list = list.filter(p => p.status === s);
     if (v !== 'All Vendors') list = list.filter(p => p.vendor === v);
     FleetRuntimeStability.replaceHtml(table, plantRows(list));
-    window.FleetRegistryQuery?.update('plants', { search: q || null, plantStatus: s === 'All Statuses' ? null : s, plantVendor: v === 'All Vendors' ? null : v }, { replace: true, emit: false });
+    window.FleetRegistryQuery?.update('plants', { page: 1, search: q || null, plantStatus: s === 'All Statuses' ? null : s, plantVendor: v === 'All Vendors' ? null : v }, { replace: true, emit: true });
     const scope = document.getElementById('plantFilterScopeV126');
     if (scope) scope.innerHTML = window.FleetRegistryQuery?.filterScopeHtml('plants') || '';
   }

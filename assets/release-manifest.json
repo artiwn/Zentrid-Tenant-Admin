@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "app": "Zentrid Tenant Admin",
+  "workspace": "tenant-admin",
+  "version": "1.44.6",
+  "release": "v144.6",
+  "channel": "prototype",
+  "environment": "local",
+  "target": "local",
+  "buildId": "v144.6-local-20260903073009",
+  "builtAt": "2026-09-03T07:30:09.498Z",
+  "commit": null,
+  "commitShort": null
+}

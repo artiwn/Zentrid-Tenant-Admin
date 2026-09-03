@@ -2,15 +2,15 @@
    Endpoint selection, pagination, source merging and DTO mapping live here.
    UI bridges consume normalized repository results instead of raw API payloads. */
 (function () {
-  type RepositoryRecord = Record<string, FleetLegacyCompat>;
-  type RepositoryEntity = 'clients' | 'plants' | 'devices' | 'alerts' | 'integrations';
-  type RepositoryIdentity = 'plant' | 'device' | 'alert' | 'generic';
+  type RepositoryRecord = Record<string, ZentridLegacyCompat>;
+  type RepositoryEntity = 'clients' | 'tenants' | 'plants' | 'devices' | 'alerts' | 'telemetry' | 'integrations';
+  type RepositoryIdentity = 'plant' | 'device' | 'alert' | 'telemetry' | 'generic';
 
-  interface FleetRepositoryMapperContext extends FleetContractMapperContext {
+  interface ZentridRepositoryMapperContext extends ZentridContractMapperContext {
     realDisplayName?(row: RepositoryRecord, entityLabel: string, typeHint?: unknown): string;
   }
 
-  interface FleetRepositoryPagination {
+  interface ZentridRepositoryPagination {
     page: number;
     pageSize: number;
     totalCount: number;
@@ -19,10 +19,10 @@
     hasNextPage: boolean;
   }
 
-  type FleetRepositoryCacheState = 'network' | 'fresh' | 'stale' | 'persistent';
+  type ZentridRepositoryCacheState = 'network' | 'fresh' | 'stale' | 'persistent';
 
-  interface FleetRepositoryCacheMeta {
-    state: FleetRepositoryCacheState;
+  interface ZentridRepositoryCacheMeta {
+    state: ZentridRepositoryCacheState;
     key: string;
     ageMs: number;
     cachedAt: number;
@@ -32,21 +32,22 @@
     fallback: boolean;
   }
 
-  interface FleetRepositoryListResult {
+  interface ZentridRepositoryListResult {
     entity: RepositoryEntity;
     items: RepositoryRecord[];
     rawItems: RepositoryRecord[];
     source: string;
     errors: unknown[];
-    pagination: FleetRepositoryPagination;
-    cache?: FleetRepositoryCacheMeta;
+    pagination: ZentridRepositoryPagination;
+    kpi?: RepositoryRecord;
+    cache?: ZentridRepositoryCacheMeta;
   }
 
-  interface FleetRepositoryItemResult extends FleetRepositoryListResult {
+  interface ZentridRepositoryItemResult extends ZentridRepositoryListResult {
     item: RepositoryRecord | null;
   }
 
-  interface FleetRepositoryReadOptions {
+  interface ZentridRepositoryReadOptions {
     forceRefresh?: boolean;
     maxAgeMs?: number;
     staleMaxAgeMs?: number;
@@ -55,13 +56,31 @@
     requestGroup?: string;
     supersede?: boolean;
     cacheVariant?: string;
+    allowListFallback?: boolean;
     timeoutMs?: number;
     page?: number;
     pageSize?: number;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+    search?: string;
+    deviceType?: string;
+    deviceStatus?: string;
+    plantId?: string;
+    deviceId?: string;
+    metric?: string;
+    tenantId?: string;
+    severity?: string;
+    alertStatus?: string;
+    status?: string;
+    tenant?: string;
+    plant?: string;
+    vendor?: string;
+    cursor?: string;
+    format?: string;
     signal?: AbortSignal;
   }
 
-  interface FleetRepositoryCacheStats {
+  interface ZentridRepositoryCacheStats {
     hits: number;
     misses: number;
     deduplicated: number;
@@ -73,7 +92,7 @@
     fallbacks: number;
   }
 
-  interface FleetRepositoryCacheSnapshotEntry extends FleetRepositoryCacheStats {
+  interface ZentridRepositoryCacheSnapshotEntry extends ZentridRepositoryCacheStats {
     entity: RepositoryEntity;
     cached: boolean;
     persistent: boolean;
@@ -84,18 +103,18 @@
     staleMaxAgeMs: number;
   }
 
-  interface FleetEntityReadRepository {
-    list(options?: FleetRepositoryReadOptions): Promise<FleetRepositoryListResult>;
-    get(id: string, options?: FleetRepositoryReadOptions): Promise<FleetRepositoryItemResult>;
+  interface ZentridEntityReadRepository {
+    list(options?: ZentridRepositoryReadOptions): Promise<ZentridRepositoryListResult>;
+    get(id: string, options?: ZentridRepositoryReadOptions): Promise<ZentridRepositoryItemResult>;
   }
 
-  interface FleetIntegrationReadRepository extends FleetEntityReadRepository {
-    summary(options?: FleetRepositoryReadOptions): Promise<FleetRepositoryListResult>;
+  interface ZentridIntegrationReadRepository extends ZentridEntityReadRepository {
+    summary(options?: ZentridRepositoryReadOptions): Promise<ZentridRepositoryListResult>;
   }
 
   interface RepositoryCacheEntry {
     entity: RepositoryEntity;
-    result: FleetRepositoryListResult;
+    result: ZentridRepositoryListResult;
     cachedAt: number;
     ttlMs: number;
     storage: 'memory' | 'session';
@@ -110,41 +129,45 @@
 
   interface RepositoryCollectionPage {
     rows: RepositoryRecord[];
-    pagination: FleetRepositoryPagination;
+    pagination: ZentridRepositoryPagination;
     payload: unknown;
   }
 
   const DEFAULT_CACHE_TTL_MS: Record<RepositoryEntity, number> = {
     clients: 30_000,
+    tenants: 30_000,
     plants: 15_000,
     devices: 15_000,
     alerts: 10_000,
+    telemetry: 10_000,
     integrations: 20_000
   };
 
   const DEFAULT_STALE_MAX_AGE_MS: Record<RepositoryEntity, number> = {
     clients: 10 * 60_000,
+    tenants: 10 * 60_000,
     plants: 5 * 60_000,
     devices: 5 * 60_000,
     alerts: 2 * 60_000,
+    telemetry: 2 * 60_000,
     integrations: 5 * 60_000
   };
 
   const PERSISTENT_CACHE_PREFIX = 'zentrid_repository_cache_v127:';
   const MAX_PERSISTED_ENTRY_BYTES = 1_500_000;
   const cacheEntries = new Map<string, RepositoryCacheEntry>();
-  const inFlightReads = new Map<string, Promise<FleetRepositoryListResult>>();
+  const inFlightReads = new Map<string, Promise<ZentridRepositoryListResult>>();
   const activeRequests = new Map<string, ActiveRepositoryRequest>();
   const cacheGenerations = new Map<RepositoryEntity, number>();
-  const cacheStats = new Map<RepositoryEntity, FleetRepositoryCacheStats>();
-  let mapperContext: FleetRepositoryMapperContext | null = null;
+  const cacheStats = new Map<RepositoryEntity, ZentridRepositoryCacheStats>();
+  let mapperContext: ZentridRepositoryMapperContext | null = null;
 
-  function requireContext(): FleetRepositoryMapperContext {
-    if (!mapperContext) throw new Error('FleetAPIRepositories must be configured before reading data.');
+  function requireContext(): ZentridRepositoryMapperContext {
+    if (!mapperContext) throw new Error('ZentridAPIRepositories must be configured before reading data.');
     return mapperContext;
   }
 
-  function statsFor(entity: RepositoryEntity): FleetRepositoryCacheStats {
+  function statsFor(entity: RepositoryEntity): ZentridRepositoryCacheStats {
     const existing = cacheStats.get(entity);
     if (existing) return existing;
     const created = {
@@ -182,7 +205,7 @@
     return output as T;
   }
 
-  function cloneListResult(result: FleetRepositoryListResult): FleetRepositoryListResult {
+  function cloneListResult(result: ZentridRepositoryListResult): ZentridRepositoryListResult {
     return {
       entity: result.entity,
       items: cloneValue(result.items),
@@ -190,21 +213,33 @@
       source: result.source,
       errors: result.errors.slice(),
       pagination: { ...result.pagination },
+      ...(result.kpi ? { kpi: cloneValue(result.kpi) } : {}),
       ...(result.cache ? { cache: { ...result.cache } } : {})
     };
   }
 
-  function normalizedPageOptions(options: FleetRepositoryReadOptions = {}): { page: number; pageSize: number } {
+  function normalizedPageOptions(options: ZentridRepositoryReadOptions = {}): { page: number; pageSize: number } {
     const page = Number.isFinite(options.page) ? Math.max(1, Math.floor(Number(options.page))) : 1;
     const requestedSize = Number.isFinite(options.pageSize) ? Math.floor(Number(options.pageSize)) : 50;
     const pageSize = [20, 50, 100].includes(requestedSize) ? requestedSize : 50;
     return { page, pageSize };
   }
 
-  function requestCacheKey(entity: RepositoryEntity, options: FleetRepositoryReadOptions = {}): string {
+  function requestCacheKey(entity: RepositoryEntity, options: ZentridRepositoryReadOptions = {}): string {
     const { page, pageSize } = normalizedPageOptions(options);
     const variant = String(options.cacheVariant || 'list').trim().replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'list';
-    return `${entity}|variant=${variant}|page=${page}|pageSize=${pageSize}`;
+    const sortBy = String(options.sortBy || '').trim();
+    const sortDirection = options.sortDirection === 'asc' || options.sortDirection === 'desc' ? options.sortDirection : '';
+    const queryIdentityKeys: Array<keyof ZentridRepositoryReadOptions> = [
+      'search', 'deviceType', 'deviceStatus', 'plantId', 'deviceId', 'metric', 'tenantId',
+      'severity', 'alertStatus', 'status', 'tenant', 'plant', 'vendor', 'cursor', 'format'
+    ];
+    const queryIdentity = queryIdentityKeys
+      .map(key => [String(key), String(options[key] ?? '').trim()] as const)
+      .filter(([, value]) => Boolean(value))
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+      .join('&');
+    return `${entity}|variant=${variant}|page=${page}|pageSize=${pageSize}|sortBy=${encodeURIComponent(sortBy)}|sortDirection=${sortDirection}|query=${queryIdentity}`;
   }
 
   function persistentStorage(): Storage | null {
@@ -257,9 +292,9 @@
     }
   }
 
-  function validPersistedResult(value: unknown): value is FleetRepositoryListResult {
+  function validPersistedResult(value: unknown): value is ZentridRepositoryListResult {
     if (!value || typeof value !== 'object') return false;
-    const result = value as Partial<FleetRepositoryListResult>;
+    const result = value as Partial<ZentridRepositoryListResult>;
     return Array.isArray(result.items)
       && Array.isArray(result.rawItems)
       && Boolean(result.pagination && typeof result.pagination === 'object')
@@ -291,7 +326,7 @@
       }
       const hydrated: RepositoryCacheEntry = {
         entity,
-        result: parsed.result as FleetRepositoryListResult,
+        result: parsed.result as ZentridRepositoryListResult,
         cachedAt,
         ttlMs: Number(parsed.ttlMs) || DEFAULT_CACHE_TTL_MS[entity],
         storage: 'session'
@@ -305,13 +340,13 @@
   }
 
   function withCacheMeta(
-    result: FleetRepositoryListResult,
+    result: ZentridRepositoryListResult,
     key: string,
-    state: FleetRepositoryCacheState,
+    state: ZentridRepositoryCacheState,
     cachedAt: number,
     revalidating = false,
     fallback = false
-  ): FleetRepositoryListResult {
+  ): ZentridRepositoryListResult {
     const cloned = cloneListResult(result);
     const ageMs = Math.max(0, Date.now() - cachedAt);
     cloned.cache = {
@@ -374,7 +409,7 @@
     return detail.entities.filter((value): value is RepositoryEntity => typeof value === 'string' && allowed.has(value as RepositoryEntity));
   }
 
-  function cacheSnapshot(entity?: RepositoryEntity): FleetRepositoryCacheSnapshotEntry[] {
+  function cacheSnapshot(entity?: RepositoryEntity): ZentridRepositoryCacheSnapshotEntry[] {
     const now = Date.now();
     const entities = entity ? [entity] : (Object.keys(DEFAULT_CACHE_TTL_MS) as RepositoryEntity[]);
     return entities.map(name => {
@@ -408,10 +443,10 @@
   function startNetworkRead(
     entity: RepositoryEntity,
     key: string,
-    loader: (signal: AbortSignal) => Promise<FleetRepositoryListResult>,
-    options: FleetRepositoryReadOptions,
+    loader: (signal: AbortSignal) => Promise<ZentridRepositoryListResult>,
+    options: ZentridRepositoryReadOptions,
     notify: boolean
-  ): Promise<FleetRepositoryListResult> {
+  ): Promise<ZentridRepositoryListResult> {
     const existing = inFlightReads.get(key);
     if (existing) {
       statsFor(entity).deduplicated += 1;
@@ -427,7 +462,7 @@
       }
     }
 
-    const linked = linkedAbortController(options.signal);
+    const linked = linkedAbortController(options?.signal);
     if (group) activeRequests.set(group, { entity, key, group, controller: linked.controller });
     const requestGeneration = cacheGeneration(entity);
     const request = loader(linked.controller.signal)
@@ -473,9 +508,9 @@
 
   async function readThroughCache(
     entity: RepositoryEntity,
-    loader: (signal: AbortSignal) => Promise<FleetRepositoryListResult>,
-    options: FleetRepositoryReadOptions = {}
-  ): Promise<FleetRepositoryListResult> {
+    loader: (signal: AbortSignal) => Promise<ZentridRepositoryListResult>,
+    options: ZentridRepositoryReadOptions = {}
+  ): Promise<ZentridRepositoryListResult> {
     const stats = statsFor(entity);
     const now = Date.now();
     const maxAgeMs = Number.isFinite(options.maxAgeMs)
@@ -533,7 +568,7 @@
     if (Array.isArray(value)) return value as RepositoryRecord[];
     if (!value || typeof value !== 'object') return [];
     const payload = value as RepositoryRecord;
-    const keys = ['items', 'data', 'records', 'rows', 'results', 'content', 'value', 'values'];
+    const keys = ['items', 'data', 'records', 'rows', 'results', 'content', 'telemetry', 'measurements', 'points', 'samples', 'value', 'values'];
     for (const key of keys) {
       if (Array.isArray(payload[key])) return payload[key] as RepositoryRecord[];
     }
@@ -577,6 +612,19 @@
     const plantKeys = ['sourcePlantId','plantId','externalId','plantCode','code','id','canonicalId','sourceEntityId','vendorPlantId','vendorExtensions.sourcePlantId','vendorExtensions.plantId','vendorExtensions.externalId'];
     const deviceKeys = ['sourceDeviceId','deviceId','externalId','serialNumber','serial','registrationNumber','code','id','canonicalId','sourceEntityId','vendorDeviceId','vendorExtensions.sourceDeviceId','vendorExtensions.deviceId','vendorExtensions.serialNumber'];
     const alertKeys = ['sourceAlertId','alertId','eventId','code','id','canonicalId','sourceEntityId','vendorExtensions.sourceAlertId'];
+    if (entity === 'telemetry') {
+      const explicit = context.firstOf(row, ['telemetryId', 'metricId', 'id', 'canonicalId', 'sourceEntityId', 'telemetry.id', 'measurement.id', 'reading.id', 'data.id', 'payload.id'], '');
+      if (explicit !== undefined && explicit !== null && String(explicit).trim()) return [String(explicit).trim()];
+      const parts = [
+        context.firstOf(row, ['source.provider', 'source.vendor', 'source.system', 'provider', 'vendor', 'sourceSystem', 'providerName'], ''),
+        context.firstOf(row, ['plant.id', 'plant.plantId', 'plant.sourcePlantId', 'sourcePlantId', 'plantId'], ''),
+        context.firstOf(row, ['device.id', 'device.deviceId', 'device.sourceDeviceId', 'device.serialNumber', 'sourceDeviceId', 'deviceId', 'serialNumber'], ''),
+        context.firstOf(row, ['metricName', 'metric.name', 'metric.key', 'metric.code', 'measurement.name', 'measurement.metricName', 'reading.metricName', 'telemetry.metricName', 'data.metricName', 'payload.metricName', 'name', 'key', 'parameter', 'measurementName', 'field', 'metric'], ''),
+        context.firstOf(row, ['measurement.timestamp', 'measurement.measuredAtUtc', 'reading.timestamp', 'reading.measuredAtUtc', 'telemetry.timestamp', 'data.timestamp', 'payload.timestamp', 'latest.timestamp', 'point.timestamp', 'sample.timestamp', 'timestamp', 'occurredAtUtc', 'measuredAtUtc', 'recordedAtUtc', 'collectedAtUtc', 'capturedAtUtc', 'createdAtUtc', 'lastDataAt', 'lastSyncAt'], '')
+      ].map(value => String(value ?? '').trim());
+      const composite = parts.join('|');
+      return composite.replace(/\|/g, '') ? [composite] : [];
+    }
     const keys = entity === 'plant' ? plantKeys : entity === 'device' ? deviceKeys : entity === 'alert' ? alertKeys : [...plantKeys, ...deviceKeys, ...alertKeys];
     const values = keys
       .map(key => context.firstOf(row, [key], ''))
@@ -655,7 +703,7 @@
     return fallback;
   }
 
-  function paginationFromPayload(payload: unknown, rowCount: number, options: FleetRepositoryReadOptions = {}): FleetRepositoryPagination {
+  function paginationFromPayload(payload: unknown, rowCount: number, options: ZentridRepositoryReadOptions = {}): ZentridRepositoryPagination {
     const requested = normalizedPageOptions(options);
     const pageSize = collectionPageSize(payload, requested.pageSize || rowCount || 1);
     const totalCount = collectionTotal(payload) || rowCount;
@@ -671,7 +719,7 @@
     };
   }
 
-  function fallbackPagination(rowCount: number, options: FleetRepositoryReadOptions = {}): FleetRepositoryPagination {
+  function fallbackPagination(rowCount: number, options: ZentridRepositoryReadOptions = {}): ZentridRepositoryPagination {
     const requested = normalizedPageOptions(options);
     const totalPages = Math.max(1, Math.ceil(rowCount / requested.pageSize));
     const page = Math.min(requested.page, totalPages);
@@ -689,28 +737,39 @@
     path: string,
     direct: (options?: ZentridRequestOptions) => Promise<unknown>,
     entity: RepositoryIdentity = 'generic',
-    options: FleetRepositoryReadOptions = {}
+    options: ZentridRepositoryReadOptions = {}
   ): Promise<RepositoryCollectionPage> {
     const { page, pageSize } = normalizedPageOptions(options);
     const requestOptions: ZentridRequestOptions = {
-      ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
-      ...(options.signal ? { signal: options.signal } : {})
+      ...(options?.timeoutMs ? { timeoutMs: options?.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options.signal } : {})
     };
     let payload: unknown = null;
     let successfulResponse = false;
     let lastError: unknown = null;
+    const search = String(options.search || '').trim();
+    const sortBy = String(options.sortBy || '').trim();
+    const sortDirection = options.sortDirection === 'asc' || options.sortDirection === 'desc' ? options.sortDirection : '';
 
     try {
-      payload = await FleetAPI.request(`${path}?page=${page}&size=${pageSize}`, requestOptions);
+      // Server pagination contract: ?page=${page}&pageSize=${pageSize}
+      const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (search) query.set('search', search);
+      if (sortBy) query.set('sortBy', sortBy);
+      if (sortDirection) query.set('sortDirection', sortDirection);
+      payload = await ZentridAPI.request(`${path}?${query}`, requestOptions);
       successfulResponse = true;
     } catch (error) {
       lastError = error;
       if (options.signal?.aborted) throw error;
-      try {
-        payload = await direct(requestOptions);
-        successfulResponse = true;
-      } catch (directError) {
-        lastError = directError;
+      const canUseUnpagedCompatibilityRead = page === 1 && !search && !sortBy && !sortDirection;
+      if (canUseUnpagedCompatibilityRead) {
+        try {
+          payload = await direct(requestOptions);
+          successfulResponse = true;
+        } catch (directError) {
+          lastError = directError;
+        }
       }
     }
 
@@ -719,21 +778,32 @@
     return { rows, pagination: paginationFromPayload(payload, rows.length, options), payload };
   }
 
+  function kpiFromPayload(payload: unknown): RepositoryRecord | undefined {
+    if (!payload || typeof payload !== 'object') return undefined;
+    const record = payload as RepositoryRecord;
+    const candidate = record.kpi;
+    return candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+      ? candidate as RepositoryRecord
+      : undefined;
+  }
+
   function mappedResult(
     entity: RepositoryEntity,
     rawItems: RepositoryRecord[],
     source: string,
     errors: unknown[] = [],
-    pagination: FleetRepositoryPagination = fallbackPagination(rawItems.length)
-  ): FleetRepositoryListResult {
-    const contract = FleetAPIContracts[entity];
+    pagination: ZentridRepositoryPagination = fallbackPagination(rawItems.length),
+    kpi?: RepositoryRecord
+  ): ZentridRepositoryListResult {
+    const contract = ZentridAPIContracts[entity];
     return {
       entity,
       items: contract.mapList(rawItems, requireContext()),
       rawItems,
       source,
       errors,
-      pagination
+      pagination,
+      ...(kpi ? { kpi } : {})
     };
   }
 
@@ -741,78 +811,141 @@
     const expected = String(id || '').trim().toLowerCase();
     if (!expected) return false;
     const candidates = [
-      item.id, item.externalId, item.code, item.serial, item.fleetCode, item.vendorCode,
-      item.raw?.id, item.raw?.sourceEntityId, item.raw?.sourcePlantId, item.raw?.sourceDeviceId, item.raw?.sourceAlertId
+      item.id, item.externalId, item.code, item.serial, item.zentridCode, item.vendorCode,
+      item.raw?.id, item.raw?.telemetryId, item.raw?.metricId, item.raw?.sourceEntityId, item.raw?.sourcePlantId, item.raw?.sourceDeviceId, item.raw?.sourceAlertId
     ];
     return candidates.some(value => value !== undefined && value !== null && String(value).trim().toLowerCase() === expected);
   }
 
+  type ZentridRepositoryItemLoader = (
+    id: string,
+    options?: ZentridRepositoryReadOptions
+  ) => Promise<ZentridRepositoryListResult>;
+
+  function directRecord(payload: unknown): RepositoryRecord | null {
+    if (Array.isArray(payload)) {
+      const first = payload.find(item => item && typeof item === 'object');
+      return first ? first as RepositoryRecord : null;
+    }
+    if (!payload || typeof payload !== 'object') return null;
+    const record = payload as RepositoryRecord;
+    // A real detail DTO can legitimately contain nested objects named tenant, plant,
+    // integration, etc. If the top-level object already has its own identity, it is
+    // the record itself and must not be mistaken for an API envelope.
+    const directIdentityKeys = [
+      'id', 'clientId', 'tenantId', 'plantId', 'deviceId', 'alertId',
+      'integrationId', 'sourceAlertId', 'sourcePlantId', 'sourceDeviceId'
+    ];
+    if (directIdentityKeys.some(key => {
+      const value = record[key];
+      return value !== undefined && value !== null && String(value).trim() !== '';
+    })) return record;
+    const envelopeKeys = ['item', 'data', 'record', 'result', 'client', 'tenant', 'plant', 'integration', 'value'];
+    for (const key of envelopeKeys) {
+      const nested = record[key];
+      if (!nested || typeof nested !== 'object') continue;
+      const resolved = directRecord(nested);
+      if (resolved) return resolved;
+    }
+    const rows = asArray(payload);
+    if (rows[0]) return rows[0];
+    return record;
+  }
+
+  function itemCacheVariant(entity: RepositoryEntity, id: string): string {
+    const normalized = String(id || '').trim().replace(/[^a-z0-9_-]+/gi, '-').toLowerCase() || 'unknown';
+    return `${entity}-detail-${normalized}`;
+  }
+
   function withGet(
     entity: RepositoryEntity,
-    loader: (options?: FleetRepositoryReadOptions) => Promise<FleetRepositoryListResult>
-  ): FleetEntityReadRepository {
-    const list = (options: FleetRepositoryReadOptions = {}): Promise<FleetRepositoryListResult> =>
+    loader: (options?: ZentridRepositoryReadOptions) => Promise<ZentridRepositoryListResult>,
+    itemLoader?: ZentridRepositoryItemLoader
+  ): ZentridEntityReadRepository {
+    const list = (options: ZentridRepositoryReadOptions = {}): Promise<ZentridRepositoryListResult> =>
       readThroughCache(entity, signal => loader({ ...options, signal }), options);
     return {
       list,
-      async get(id: string, options?: FleetRepositoryReadOptions): Promise<FleetRepositoryItemResult> {
-        const result = await list(options);
-        return { ...result, item: result.items.find(item => itemMatches(item, id)) || null };
+      async get(id: string, options: ZentridRepositoryReadOptions = {}): Promise<ZentridRepositoryItemResult> {
+        const expected = String(id || '').trim();
+        if (!expected || !itemLoader) {
+          const result = await list(options);
+          return { ...result, item: result.items.find(item => itemMatches(item, expected)) || null };
+        }
+        const detailOptions: ZentridRepositoryReadOptions = {
+          ...options,
+          page: 1,
+          pageSize: 20,
+          cacheVariant: itemCacheVariant(entity, expected)
+        };
+        try {
+          const result = await readThroughCache(
+            entity,
+            signal => itemLoader(expected, { ...detailOptions, signal }),
+            detailOptions
+          );
+          const item = result.items.find(candidate => itemMatches(candidate, expected)) || result.items[0] || null;
+          if (item) return { ...result, item };
+          if (options.allowListFallback === false) return { ...result, item: null };
+          const fallback = await list(options);
+          return { ...fallback, item: fallback.items.find(candidate => itemMatches(candidate, expected)) || null };
+        } catch (error) {
+          if (options.signal?.aborted) throw error;
+          if (options.allowListFallback === false) throw error;
+          const fallback = await list(options);
+          return {
+            ...fallback,
+            errors: [...fallback.errors, error],
+            item: fallback.items.find(candidate => itemMatches(candidate, expected)) || null
+          };
+        }
       }
     };
   }
 
-  const clientList = (options: FleetRepositoryReadOptions = {}): Promise<FleetRepositoryListResult> =>
-    readThroughCache('clients', async signal => {
-      const page = await fetchCollectionPage('/api/admin/clients', () => ZentridPlatformAPI.clients.list(), 'generic', { ...options, signal });
-      return mappedResult('clients', page.rows, '/api/admin/clients', [], page.pagination);
-    }, options);
+  const clients = withGet('clients', async options => {
+    const page = await fetchCollectionPage('/api/admin/clients', requestOptions => ZentridPlatformAPI.clients.list(requestOptions), 'generic', options);
+    return mappedResult('clients', page.rows, '/api/admin/clients', [], page.pagination);
+  }, async (id, options = {}) => {
+    const cleanId = String(id || '').trim();
+    const requestOptions: ZentridRequestOptions = {
+      ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options.signal ? { signal: options.signal } : {})
+    };
+    const payload = await ZentridPlatformAPI.clients.get(cleanId);
+    const record = directRecord(payload);
+    const rawItems = record ? [record] : [];
+    return mappedResult('clients', rawItems, `/api/admin/clients/${encodeURIComponent(cleanId)}`, [], fallbackPagination(rawItems.length, { page: 1, pageSize: 20 }));
+  });
 
-  function singleRecordPayload(value: unknown): RepositoryRecord | null {
-    if (Array.isArray(value)) return (value[0] as RepositoryRecord | undefined) || null;
-    if (!value || typeof value !== 'object') return null;
-    const row = value as RepositoryRecord;
-    for (const key of ['item', 'data', 'result', 'record', 'value']) {
-      const nested = row[key];
-      if (nested && typeof nested === 'object' && !Array.isArray(nested)) return nested as RepositoryRecord;
-      if (Array.isArray(nested) && nested[0] && typeof nested[0] === 'object') return nested[0] as RepositoryRecord;
-    }
-    return row;
-  }
+  const tenants = withGet('tenants', async options => {
+    const { page, pageSize } = normalizedPageOptions(options);
+    const queryParts = [
+      `page=${encodeURIComponent(String(page))}`,
+      `pageSize=${encodeURIComponent(String(pageSize))}`
+    ];
+    const search = String(options?.search || '').trim();
+    if (search) queryParts.push(`search=${encodeURIComponent(search)}`);
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options.signal } : {})
+    };
+    const payload = await ZentridAPI.request(`/api/admin/tenants?${queryParts.join('&')}`, requestOptions);
+    const rows = uniqueByIdentity(asArray(payload), 'generic');
+    return mappedResult('tenants', rows, '/api/admin/tenants', [], paginationFromPayload(payload, rows.length, options));
+  }, async (id, options = {}) => {
+    const requestOptions: ZentridRequestOptions = {
+      ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options.signal ? { signal: options.signal } : {})
+    };
+    const payload = await ZentridPlatformAPI.tenants.get(id, requestOptions);
+    const record = directRecord(payload);
+    const rawItems = record ? [record] : [];
+    return mappedResult('tenants', rawItems, `/api/admin/tenants/${encodeURIComponent(id)}`, [], fallbackPagination(rawItems.length, { page: 1, pageSize: 20 }));
+  });
 
-  const clients: FleetEntityReadRepository = {
-    list: clientList,
-    async get(id: string, options: FleetRepositoryReadOptions = {}): Promise<FleetRepositoryItemResult> {
-      const cleanId = String(id || '').trim();
-      if (!cleanId) {
-        const result = await clientList(options);
-        return { ...result, item: result.items[0] || null };
-      }
-      const detailSource = `/api/admin/clients/${encodeURIComponent(cleanId)}`;
-      try {
-        const detailOptions: FleetRepositoryReadOptions = { ...options, cacheVariant: `detail:${cleanId}` };
-        const direct = await readThroughCache('clients', async () => {
-          const payload = await ZentridPlatformAPI.clients.get(cleanId);
-          const row = singleRecordPayload(payload);
-          return mappedResult('clients', row ? [row] : [], detailSource, [], fallbackPagination(row ? 1 : 0, { ...detailOptions, page: 1, pageSize: 1 }));
-        }, detailOptions);
-        return { ...direct, item: direct.items[0] || null };
-      } catch (directError) {
-        const fallback = await clientList({ ...options, page: 1, pageSize: Math.max(100, Number(options.pageSize || 0)), cacheVariant: `detail-list:${cleanId}` });
-        return {
-          ...fallback,
-          source: `${detailSource} → ${fallback.source}`,
-          errors: [directError, ...fallback.errors],
-          item: fallback.items.find(item => itemMatches(item, cleanId)) || null
-        };
-      }
-    }
-  };
-
-
-
-  function selectPlantPagination(livePage: RepositoryCollectionPage | null, adminPage: RepositoryCollectionPage | null, rowCount: number, options: FleetRepositoryReadOptions): FleetRepositoryPagination {
-    const candidates = [adminPage?.pagination, livePage?.pagination].filter((value): value is FleetRepositoryPagination => Boolean(value));
+  function selectPlantPagination(livePage: RepositoryCollectionPage | null, adminPage: RepositoryCollectionPage | null, rowCount: number, options: ZentridRepositoryReadOptions): ZentridRepositoryPagination {
+    const candidates = [adminPage?.pagination, livePage?.pagination].filter((value): value is ZentridRepositoryPagination => Boolean(value));
     if (!candidates.length) return fallbackPagination(rowCount, options);
     const requested = normalizedPageOptions(options);
     const totalCount = Math.max(...candidates.map(item => item.totalCount), rowCount);
@@ -830,46 +963,286 @@
   }
 
   const plants = withGet('plants', async options => {
-    const [liveResult, adminResult] = await Promise.allSettled([
-      fetchCollectionPage('/api/plants', requestOptions => ZentridPlatformAPI.live.plants(requestOptions), 'plant', options),
-      fetchCollectionPage('/api/admin/plants', () => ZentridPlatformAPI.plantRegistry.list(), 'plant', options)
-    ]);
-    const livePage = liveResult.status === 'fulfilled' ? liveResult.value : null;
-    const adminPage = adminResult.status === 'fulfilled' ? adminResult.value : null;
-    const liveRows = livePage?.rows || [];
-    const adminRows = adminPage?.rows || [];
-    const errors = [liveResult, adminResult]
-      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-      .map(result => result.reason);
-    const requested = normalizedPageOptions(options);
-    const mergedRows = mergePlantSources(liveRows, adminRows);
-    const rawItems = mergedRows.slice(0, requested.pageSize);
-    const source = liveRows.length && adminRows.length
-      ? '/api/plants + /api/admin/plants'
-      : liveRows.length ? '/api/plants' : adminRows.length ? '/api/admin/plants' : '/api/plants + /api/admin/plants';
-    const pagination = selectPlantPagination(livePage, adminPage, rawItems.length, options || {});
-    return mappedResult('plants', rawItems, source, errors, pagination);
+    if (options?.cacheVariant === 'live') {
+      const livePage = await fetchCollectionPage(
+        '/api/plants',
+        requestOptions => ZentridPlatformAPI.live.plants(requestOptions),
+        'plant',
+        options
+      );
+      return mappedResult('plants', livePage.rows, '/api/plants', [], livePage.pagination);
+    }
+
+    // Registry-first by default. List pages from /api/admin/plants and /api/plants
+    // are independently paginated/sorted, so implicitly merging their current
+    // pages can attach live values to the wrong administrative row. Live data
+    // must be requested explicitly with cacheVariant='live'.
+    const adminPage = await fetchCollectionPage(
+      '/api/admin/plants',
+      requestOptions => ZentridPlatformAPI.plantRegistry.list(requestOptions),
+      'plant',
+      options
+    );
+    return mappedResult('plants', adminPage.rows, '/api/admin/plants', [], adminPage.pagination);
+  }, async (id, options = {}) => {
+    const requestOptions: ZentridRequestOptions = {
+      ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options.signal ? { signal: options.signal } : {})
+    };
+    const payload = await ZentridPlatformAPI.plantRegistry.get(id, requestOptions);
+    const adminRecord = directRecord(payload);
+    if (!adminRecord) {
+      return mappedResult(
+        'plants',
+        [],
+        `/api/admin/plants/${encodeURIComponent(id)}`,
+        [],
+        fallbackPagination(0, { page: 1, pageSize: 20 })
+      );
+    }
+
+    if (options.cacheVariant === 'admin-registry') {
+      return mappedResult(
+        'plants',
+        [adminRecord],
+        `/api/admin/plants/${encodeURIComponent(id)}`,
+        [],
+        fallbackPagination(1, { page: 1, pageSize: 20 })
+      );
+    }
+
+    let liveRecord: RepositoryRecord | null = null;
+    const errors: unknown[] = [];
+    try {
+      const livePage = await fetchCollectionPage(
+        '/api/plants',
+        liveOptions => ZentridPlatformAPI.live.plants(liveOptions),
+        'plant',
+        { ...options, page: 1, pageSize: 100 }
+      );
+      liveRecord = livePage.rows.find(row => rowsShareIdentity(row, adminRecord, 'plant')) ||
+        livePage.rows.find(row => itemMatches(row, id)) ||
+        null;
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      errors.push(error);
+    }
+
+    const mergedRows = mergePlantSources(liveRecord ? [liveRecord] : [], [adminRecord]);
+    const source = liveRecord
+      ? `/api/admin/plants/${encodeURIComponent(id)} + /api/plants`
+      : `/api/admin/plants/${encodeURIComponent(id)}`;
+    return mappedResult(
+      'plants',
+      mergedRows.slice(0, 1),
+      source,
+      errors,
+      fallbackPagination(mergedRows.length ? 1 : 0, { page: 1, pageSize: 20 })
+    );
   });
 
   const devices = withGet('devices', async options => {
-    const page = await fetchCollectionPage('/api/devices', requestOptions => ZentridPlatformAPI.live.devices(requestOptions), 'device', options);
-    return mappedResult('devices', page.rows, '/api/devices', [], page.pagination);
+    if (options?.cacheVariant === 'live') {
+      const livePage = await fetchCollectionPage(
+        '/api/devices',
+        requestOptions => ZentridPlatformAPI.live.devices(requestOptions),
+        'device',
+        options
+      );
+      return mappedResult('devices', livePage.rows, '/api/devices', [], livePage.pagination, kpiFromPayload(livePage.payload));
+    }
+
+    const { page, pageSize } = normalizedPageOptions(options);
+    // Keep the shared pagination marker used by repository diagnostics: ?page=${page}&size=${pageSize}
+    const queryParts = [
+      `page=${encodeURIComponent(String(page))}`,
+      `pageSize=${encodeURIComponent(String(pageSize))}`
+    ];
+    const search = String(options?.search || '').trim();
+    const deviceType = String(options?.deviceType || '').trim();
+    const deviceStatus = String(options?.deviceStatus || '').trim();
+    const plantId = String(options?.plantId || '').trim();
+    if (search) queryParts.push(`search=${encodeURIComponent(search)}`);
+    if (deviceType) queryParts.push(`deviceType=${encodeURIComponent(deviceType)}`);
+    if (deviceStatus) queryParts.push(`deviceStatus=${encodeURIComponent(deviceStatus)}`);
+    if (plantId) queryParts.push(`plantId=${encodeURIComponent(plantId)}`);
+    const query = queryParts.join('&');
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options?.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options?.signal } : {})
+    };
+    const payload = await ZentridAPI.request(`/api/admin/devices?${query}`, requestOptions);
+    const rows = uniqueByIdentity(asArray(payload), 'device');
+    return mappedResult('devices', rows, '/api/admin/devices', [], paginationFromPayload(payload, rows.length, options), kpiFromPayload(payload));
+  }, async (id, options = {}) => {
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options?.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options?.signal } : {})
+    };
+    const payload = await ZentridPlatformAPI.deviceRegistry.get(id, requestOptions);
+    const record = directRecord(payload);
+    const rawItems = record ? [record] : [];
+    return mappedResult(
+      'devices',
+      rawItems,
+      `/api/admin/devices/${encodeURIComponent(id)}`,
+      [],
+      fallbackPagination(rawItems.length, { page: 1, pageSize: 20 })
+    );
   });
 
   const alerts = withGet('alerts', async options => {
-    const page = await fetchCollectionPage('/api/alerts', requestOptions => ZentridPlatformAPI.live.alerts(requestOptions), 'alert', options);
-    return mappedResult('alerts', page.rows, '/api/alerts', [], page.pagination);
+    if (options?.cacheVariant === 'live') {
+      const livePage = await fetchCollectionPage(
+        '/api/alerts',
+        requestOptions => ZentridPlatformAPI.live.alerts(requestOptions),
+        'alert',
+        options
+      );
+      return mappedResult('alerts', livePage.rows, '/api/alerts', [], livePage.pagination, kpiFromPayload(livePage.payload));
+    }
+
+    const { page, pageSize } = normalizedPageOptions(options);
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    const keys: Array<keyof ZentridRepositoryReadOptions> = ['severity','alertStatus','status','tenant','plant','vendor','plantId','deviceId','tenantId','format','cursor','search'];
+    keys.forEach(key => {
+      const value = String(options?.[key] || '').trim();
+      if (value) query.set(String(key), value);
+    });
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options.signal } : {})
+    };
+    const payload = await ZentridAPI.request(`/api/admin/alerts?${query.toString()}`, requestOptions);
+    const rows = uniqueByIdentity(asArray(payload), 'alert');
+    return mappedResult('alerts', rows, '/api/admin/alerts', [], paginationFromPayload(payload, rows.length, options), kpiFromPayload(payload));
+  }, async (id, options = {}) => {
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options.signal } : {})
+    };
+    const payload = await ZentridPlatformAPI.adminAlerts.get(id, requestOptions);
+    const [timelineResult, relatedResult, sopResult, telemetryCurveResult] = await Promise.allSettled([
+      ZentridPlatformAPI.adminAlerts.timeline(id, requestOptions),
+      ZentridPlatformAPI.adminAlerts.related(id, requestOptions),
+      ZentridPlatformAPI.adminAlerts.sop(id, requestOptions),
+      ZentridPlatformAPI.adminAlerts.telemetryCurve(id, { windowMinutes: 60 }, requestOptions)
+    ]);
+    const errors: unknown[] = [];
+    const record = directRecord(payload);
+    let enrichedRecord: RepositoryRecord | null = record ? { ...record } : null;
+    const attach = (key: string, loadedKey: string, result: PromiseSettledResult<unknown>): void => {
+      if (!enrichedRecord) return;
+      if (result.status === 'fulfilled') {
+        enrichedRecord[key] = result.value;
+        enrichedRecord[loadedKey] = true;
+      } else {
+        errors.push(result.reason);
+      }
+    };
+    attach('__timeline', '__timelineLoaded', timelineResult);
+    attach('__related', '__relatedLoaded', relatedResult);
+    attach('__sop', '__sopLoaded', sopResult);
+    attach('__telemetryCurve', '__telemetryCurveLoaded', telemetryCurveResult);
+    const rawItems = enrichedRecord ? [enrichedRecord] : [];
+    return mappedResult('alerts', rawItems, `/api/admin/alerts/${encodeURIComponent(id)}`, errors, fallbackPagination(rawItems.length, { page: 1, pageSize: 1 }));
+  });
+
+  const telemetry = withGet('telemetry', async options => {
+    const query = new URLSearchParams({
+      page: String(Math.max(1, Number(options?.page || 1))),
+      pageSize: String(Math.max(1, Number(options?.pageSize || 100)))
+    });
+    if (options?.plantId) query.set('plantId', options.plantId);
+    if (options?.deviceId) query.set('deviceId', options.deviceId);
+    if (options?.metric) query.set('metric', options.metric);
+    if (options?.search) query.set('search', options.search);
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options.signal } : {})
+    };
+    const source = `/api/telemetry?${query.toString()}`;
+    const payload = await ZentridAPI.request(source, requestOptions);
+    const rows = uniqueByIdentity(asArray(payload), 'telemetry');
+    return mappedResult('telemetry', rows, source, [], paginationFromPayload(payload, rows.length, options));
   });
 
   const integrationRegistry = withGet('integrations', async options => {
-    const page = await fetchCollectionPage('/api/admin/provider-integrations', () => ZentridPlatformAPI.providerIntegrations.list(), 'generic', options);
+    const page = await fetchCollectionPage('/api/admin/provider-integrations', requestOptions => ZentridPlatformAPI.providerIntegrations.list(requestOptions), 'generic', options);
     return mappedResult('integrations', page.rows, '/api/admin/provider-integrations', [], page.pagination);
+  }, async (id, options = {}) => {
+    const requestOptions: ZentridRequestOptions = {
+      ...(options?.timeoutMs ? { timeoutMs: options?.timeoutMs } : {}),
+      ...(options?.signal ? { signal: options?.signal } : {})
+    };
+    const payload = await ZentridPlatformAPI.providerIntegrations.get(id, requestOptions);
+    const record = directRecord(payload);
+    const rawItems = record ? [record] : [];
+    return mappedResult(
+      'integrations',
+      rawItems,
+      `/api/admin/provider-integrations/${encodeURIComponent(id)}`,
+      [],
+      fallbackPagination(rawItems.length, { page: 1, pageSize: 20 })
+    );
   });
 
-  const integrations: FleetIntegrationReadRepository = {
+  async function fetchIntegrationSummaryPageOneByOne(options: ZentridRepositoryReadOptions, signal: AbortSignal): Promise<ZentridRepositoryListResult> {
+    const requestOptions: ZentridRequestOptions = {
+      ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+      signal
+    };
+    const firstPayload = await ZentridAPI.request('/api/integrations?page=1&pageSize=1', requestOptions);
+    const firstRows = uniqueByIdentity(asArray(firstPayload), 'generic');
+    const firstPagination = paginationFromPayload(firstPayload, firstRows.length, { ...options, page: 1, pageSize: 1 });
+    const totalPages = Math.max(1, firstPagination.totalPages);
+
+    // The backend integration-summary query is currently much more reliable with a tiny page.
+    // For the small integration registry used by Platform Overview, collect all rows this way.
+    // If the registry grows beyond 10 pages, fall back to the normal paged endpoint instead of
+    // issuing an unbounded number of requests.
+    if (totalPages > 10) {
+      const normalPage = await fetchCollectionPage(
+        '/api/integrations',
+        directOptions => ZentridPlatformAPI.live.integrations(directOptions),
+        'generic',
+        { ...options, page: 1, pageSize: 20, signal }
+      );
+      return mappedResult('integrations', normalPage.rows, '/api/integrations', [], normalPage.pagination);
+    }
+
+    const pageNumbers = Array.from({ length: Math.max(0, totalPages - 1) }, (_value, index) => index + 2);
+    const settled = await Promise.allSettled(pageNumbers.map(page =>
+      ZentridAPI.request(`/api/integrations?page=${page}&pageSize=1`, requestOptions)
+    ));
+    const rows = [...firstRows];
+    const errors: unknown[] = [];
+    settled.forEach(result => {
+      if (result.status === 'fulfilled') rows.push(...asArray(result.value));
+      else errors.push(result.reason);
+    });
+
+    const uniqueRows = uniqueByIdentity(rows, 'generic');
+    return mappedResult(
+      'integrations',
+      uniqueRows,
+      '/api/integrations?pageSize=1',
+      errors,
+      {
+        page: 1,
+        pageSize: 1,
+        totalCount: firstPagination.totalCount,
+        totalPages: firstPagination.totalPages,
+        hasPreviousPage: false,
+        hasNextPage: false
+      }
+    );
+  }
+
+  const integrations: ZentridIntegrationReadRepository = {
     ...integrationRegistry,
-    async summary(options: FleetRepositoryReadOptions = {}): Promise<FleetRepositoryListResult> {
-      const readOptions: FleetRepositoryReadOptions = {
+    async summary(options: ZentridRepositoryReadOptions = {}): Promise<ZentridRepositoryListResult> {
+      const readOptions: ZentridRepositoryReadOptions = {
         ...options,
         cacheVariant: 'summary',
         staleWhileRevalidate: options.staleWhileRevalidate !== false,
@@ -878,19 +1251,13 @@
         supersede: options.supersede !== false
       };
       return readThroughCache('integrations', async signal => {
-        const page = await fetchCollectionPage(
-          '/api/integrations',
-          requestOptions => ZentridPlatformAPI.live.integrations(requestOptions),
-          'generic',
-          { ...readOptions, signal }
-        );
-        return mappedResult('integrations', page.rows, '/api/integrations', [], page.pagination);
+        return fetchIntegrationSummaryPageOneByOne(readOptions, signal);
       }, readOptions);
     }
   };
 
   const api = {
-    configure(context: FleetRepositoryMapperContext): void {
+    configure(context: ZentridRepositoryMapperContext): void {
       if (mapperContext && mapperContext !== context) invalidateCache();
       mapperContext = context;
     },
@@ -904,7 +1271,7 @@
       invalidateMany(entities: RepositoryEntity[]): void {
         invalidateMany(entities);
       },
-      snapshot(entity?: RepositoryEntity): FleetRepositoryCacheSnapshotEntry[] {
+      snapshot(entity?: RepositoryEntity): ZentridRepositoryCacheSnapshotEntry[] {
         return cacheSnapshot(entity);
       },
       clearPersistent(entity?: RepositoryEntity): void {
@@ -936,9 +1303,11 @@
       }
     },
     clients,
+    tenants,
     plants,
     devices,
     alerts,
+    telemetry,
     integrations
   };
 
@@ -949,5 +1318,6 @@
     window.addEventListener('pagehide', () => api.coordinator.cancelAll(), { once: true });
   }
 
+  window.ZentridAPIRepositories = api;
   window.FleetAPIRepositories = api;
 })();

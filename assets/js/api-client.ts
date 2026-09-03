@@ -60,7 +60,7 @@ type ZentridAuthAPI = {
   me(): Promise<unknown>;
   validate(): Promise<unknown>;
   ensureSession(requiredRole?: string): Promise<boolean>;
-  logout(redirect?: boolean): void;
+  logout(redirect?: boolean): Promise<void>;
   request<T = unknown>(path: string, options?: ZentridRequestOptions): Promise<T>;
   getAccessToken(): string;
   getRefreshToken(): string;
@@ -75,7 +75,7 @@ type ZentridAuthAPI = {
   isAuthenticated(): boolean;
 };
 
-type FleetAPIClient = {
+type ZentridAPIClient = {
   request<T = unknown>(path: string, options?: ZentridRequestOptions): Promise<T>;
   auth: ZentridAuthAPI;
   config: ZentridConfigAPI;
@@ -85,22 +85,28 @@ class ZentridRequestError extends Error {
   readonly status: number;
   readonly code: string;
   readonly path: string;
+  readonly responseBody: unknown;
 
-  constructor(message: string, status: number, code: string, path: string) {
+  constructor(message: string, status: number, code: string, path: string, responseBody: unknown = null) {
     super(message);
     this.name = 'ZentridRequestError';
     this.status = status;
     this.code = code;
     this.path = path;
+    this.responseBody = responseBody;
   }
 }
 
 const ZentridConfig: ZentridConfigAPI = (() => {
   const LOCAL_PROXY_BASE_URL = 'http://localhost:5050';
-  const LEGACY_DIRECT_BACKENDS = [
-    'https://fleetosauth.unisys.am',
-    'https://fleetosapi.unisys.am'
-  ];
+  function isLegacyDirectBackend(value: string): boolean {
+    if (!/^https?:\/\//i.test(value)) return false;
+    try {
+      return new URL(value).hostname.toLowerCase().endsWith('.unisys.am');
+    } catch (_error) {
+      return false;
+    }
+  }
 
   function isLocalFrontend(): boolean {
     return ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
@@ -121,14 +127,14 @@ const ZentridConfig: ZentridConfigAPI = (() => {
 
     // Previous patches may have stored the real Swagger domains in localStorage.
     // That bypasses the proxy and causes browser OPTIONS/CORS errors, so ignore them.
-    if (LEGACY_DIRECT_BACKENDS.includes(stored)) return defaultBaseUrl();
+    if (isLegacyDirectBackend(stored)) return defaultBaseUrl();
 
     return stored || defaultBaseUrl();
   }
 
   function set(key: string, value: string): void {
     const next = clean(value);
-    if (!next || LEGACY_DIRECT_BACKENDS.includes(next)) localStorage.removeItem(key);
+    if (!next || isLegacyDirectBackend(next)) localStorage.removeItem(key);
     else localStorage.setItem(key, next);
   }
 
@@ -302,12 +308,180 @@ const ZentridAuth: ZentridAuthAPI = (() => {
     return textValue(body.message) || textValue(body.error) || textValue(body.title) || response.statusText || 'Request failed';
   }
 
-  async function parseResponse<T = unknown>(response: Response, path: string): Promise<T> {
+
+  function clientMutationDebugEnabled(path: string, method: string): boolean {
+    return (path.startsWith('/api/admin/clients') || path.startsWith('/api/admin/plants')) && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  }
+
+  function mutationDiagnosticEntity(path: string): 'Client' | 'Plant' {
+    return path.startsWith('/api/admin/plants') ? 'Plant' : 'Client';
+  }
+
+  type ClientMutationDiagnosticContext = {
+    requestId: string;
+    url: string;
+    path: string;
+    method: string;
+    startedAt: number;
+    startedAtIso: string;
+    payload: unknown;
+    payloadJson: string | null;
+  };
+
+  let activeClientMutationDiagnostic: ClientMutationDiagnosticContext | null = null;
+
+  function clientDebugPayload(body: BodyInit | null | undefined): unknown {
+    if (typeof body !== 'string') return body || null;
+    try { return JSON.parse(body); } catch (_error) { return body; }
+  }
+
+  function clientDiagnosticRequestId(path = ''): string {
+    const prefix = mutationDiagnosticEntity(path).toLowerCase();
+    try { return crypto.randomUUID(); }
+    catch (_error) { return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+  }
+
+  function clientPayloadSummary(payload: unknown): ZentridUnknownRecord {
+    if (!isRecord(payload)) return { payloadType: typeof payload };
+    const tenantLink = isRecord(payload.tenantLink) ? payload.tenantLink : {};
+    const identity = isRecord(payload.identity) ? payload.identity : {};
+    const address = isRecord(payload.address) ? payload.address : {};
+    const primaryContact = isRecord(payload.primaryContact) ? payload.primaryContact : {};
+    const portalAccount = isRecord(payload.portalAccount) ? payload.portalAccount : {};
+    return {
+      topLevelKeys: Object.keys(payload),
+      clientName: payload.clientName || null,
+      managingTenantId: tenantLink.managingTenantId || null,
+      clientType: tenantLink.clientType || null,
+      status: tenantLink.status || null,
+      identityKeys: Object.keys(identity),
+      addressKeys: Object.keys(address),
+      primaryContactKeys: Object.keys(primaryContact),
+      portalAccountKeys: Object.keys(portalAccount),
+      bankAccountCount: Array.isArray(payload.bankAccounts) ? payload.bankAccounts.length : null
+    };
+  }
+
+  function beginClientMutationDiagnostic(url: string, path: string, method: string, body: BodyInit | null | undefined): ClientMutationDiagnosticContext | null {
+    if (!clientMutationDebugEnabled(path, method)) return null;
+    const payload = clientDebugPayload(body);
+    const context: ClientMutationDiagnosticContext = {
+      requestId: clientDiagnosticRequestId(path),
+      url,
+      path,
+      method,
+      startedAt: performance.now(),
+      startedAtIso: new Date().toISOString(),
+      payload,
+      payloadJson: typeof body === 'string' ? body : null
+    };
+    activeClientMutationDiagnostic = context;
+    const entity = mutationDiagnosticEntity(path);
+    console.groupCollapsed(`[${entity} API Diagnostic] ${method} ${path} · ${context.requestId}`);
+    console.log('Request ID:', context.requestId);
+    console.log('URL:', url);
+    console.log('Method:', method);
+    console.log('Started at:', context.startedAtIso);
+    console.log('Payload summary:', clientPayloadSummary(payload));
+    if (entity === 'Plant' && isRecord(payload)) {
+      console.log('Plant payload keys:', Object.keys(payload));
+      console.log('Plant required-value candidates:', {
+        plantName: payload.plantName ?? payload.name ?? null,
+        plantCode: payload.plantCode ?? payload.code ?? null,
+        clientId: payload.clientId ?? null,
+        plantType: payload.plantType ?? null,
+        countryRegion: payload.countryRegion ?? null,
+        plantTimeZone: payload.plantTimeZone ?? null,
+        sourceScheme: payload.sourceScheme ?? null
+      });
+      console.log('Plant canonical DTO sections:', {
+        location: isRecord(payload.location) ? payload.location : null,
+        technical: isRecord(payload.technical) ? payload.technical : null,
+        commercial: isRecord(payload.commercial) ? payload.commercial : null,
+        vendorPayloadKeys: isRecord(payload.vendorPayload) ? Object.keys(payload.vendorPayload) : []
+      });
+    }
+    console.log('Request payload:', payload);
+    console.log('Request payload JSON:', context.payloadJson || '(non-string body)');
+    console.log('Browser:', navigator.userAgent);
+    console.log('Online:', navigator.onLine);
+    console.groupEnd();
+    return context;
+  }
+
+  function clientBackendReportHints(status: number, body: unknown, context: ClientMutationDiagnosticContext): string[] {
+    const message = isRecord(body) ? textValue(body.message) || textValue(body.error) || textValue(body.title) : textValue(body);
+    const hints: string[] = [];
+    if (status === 400) {
+      const entity = mutationDiagnosticEntity(context.path);
+      hints.push(`Backend returned 400. Compare the request payload below with the ${entity} create/update DTO expected by Swagger/backend.`);
+      if (message) hints.push(`Backend message: ${message}`);
+    }
+    if (status >= 500) hints.push('Backend returned a server error. Search backend logs using the request ID and timestamp below.');
+    if (context.method === 'PUT') hints.push(`Route entity ID: ${context.path.split('/').pop() || '(missing)'}`);
+    return hints;
+  }
+
+  function finishClientMutationDiagnostic(path: string, method: string, response: Response, body: unknown): void {
+    if (!clientMutationDebugEnabled(path, method)) return;
+    const context = activeClientMutationDiagnostic || {
+      requestId: '(unavailable)', url: '', path, method, startedAt: performance.now(), startedAtIso: new Date().toISOString(), payload: null, payloadJson: null
+    };
+    const completedAtIso = new Date().toISOString();
+    const durationMs = Math.max(0, Math.round(performance.now() - context.startedAt));
+    const headers = Object.fromEntries(response.headers.entries());
+    const diagnosticEntity = mutationDiagnosticEntity(path);
+    const report = {
+      title: `FleetOS ${diagnosticEntity} API Diagnostic Report`,
+      requestId: context.requestId,
+      request: {
+        method: context.method,
+        url: context.url,
+        path: context.path,
+        startedAt: context.startedAtIso,
+        payloadSummary: clientPayloadSummary(context.payload),
+        payload: context.payload
+      },
+      response: {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        completedAt: completedAtIso,
+        durationMs,
+        headers,
+        body
+      },
+      analysisHints: clientBackendReportHints(response.status, body, context)
+    };
+    if (diagnosticEntity === 'Plant') {
+      (window as unknown as { __FLEETOS_LAST_PLANT_API_REPORT__?: unknown }).__FLEETOS_LAST_PLANT_API_REPORT__ = report;
+      try { sessionStorage.setItem('__FLEETOS_LAST_PLANT_API_REPORT__', JSON.stringify(report)); } catch (_error) { /* diagnostic backup is best-effort */ }
+    } else {
+      (window as unknown as { __FLEETOS_LAST_CLIENT_API_REPORT__?: unknown }).__FLEETOS_LAST_CLIENT_API_REPORT__ = report;
+      try { sessionStorage.setItem('__FLEETOS_LAST_CLIENT_API_REPORT__', JSON.stringify(report)); } catch (_error) { /* diagnostic backup is best-effort */ }
+    }
+    const logger = response.ok ? console.log : console.error;
+    console.group(`[${diagnosticEntity} API FULL REPORT] ${method} ${path} → ${response.status} · ${context.requestId}`);
+    logger('COPY THIS OBJECT FOR FRONTEND/BACKEND TEAM:', report);
+    logger('COPYABLE JSON:', JSON.stringify(report, null, 2));
+    logger('Request ID / correlation key:', context.requestId);
+    logger('Duration:', `${durationMs} ms`);
+    logger('Response body:', body);
+    logger('Response headers:', headers);
+    const hints = clientBackendReportHints(response.status, body, context);
+    if (hints.length) console.warn('Diagnostic hints:', hints);
+    console.info(`Retrieve this report later with: window.__FLEETOS_LAST_${diagnosticEntity.toUpperCase()}_API_REPORT__`);
+    console.groupEnd();
+    activeClientMutationDiagnostic = null;
+  }
+
+  async function parseResponse<T = unknown>(response: Response, path: string, method = 'GET'): Promise<T> {
     const text = await response.text();
     let body: unknown = null;
     try { body = text ? JSON.parse(text) : null; } catch (error) { body = text; }
+    finishClientMutationDiagnostic(path, method, response, body);
     if (!response.ok) {
-      throw new ZentridRequestError(`${responseMessage(body, response)} (${response.status})`, response.status, `HTTP_${response.status}`, path);
+      throw new ZentridRequestError(`${responseMessage(body, response)} (${response.status})`, response.status, `HTTP_${response.status}`, path, body);
     }
     return body as T;
   }
@@ -503,7 +677,8 @@ const ZentridAuth: ZentridAuthAPI = (() => {
     } = options;
 
     const headers = new Headers(fetchOptions.headers || {});
-    if (!headers.has('Content-Type') && fetchOptions.body) headers.set('Content-Type', 'application/json');
+    const multipartBody = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
+    if (!headers.has('Content-Type') && fetchOptions.body && !multipartBody) headers.set('Content-Type', 'application/json');
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
 
     const token = getAccessToken();
@@ -517,7 +692,10 @@ const ZentridAuth: ZentridAuthAPI = (() => {
 
     while (true) {
       try {
-        const response = await fetchWithTimeout(`${baseUrl}${path}`, { ...fetchOptions, headers }, timeoutMs, path);
+        const requestUrl = `${baseUrl}${path}`;
+        const clientDiagnostic = beginClientMutationDiagnostic(requestUrl, path, method, fetchOptions.body);
+        if (clientDiagnostic) headers.set('X-Client-Request-Id', clientDiagnostic.requestId);
+        const response = await fetchWithTimeout(requestUrl, { ...fetchOptions, headers }, timeoutMs, path);
         if (response.status === 401 && auth) {
           if (retryAuth && getRefreshToken() && path !== '/api/Auth/refresh') {
             try {
@@ -536,7 +714,7 @@ const ZentridAuth: ZentridAuthAPI = (() => {
           await delay(retryDelay, fetchOptions.signal, path);
           continue;
         }
-        const result = await parseResponse<T>(response, path);
+        const result = await parseResponse<T>(response, path, method);
         dispatchRequestSuccess(path, response.status, attempt + 1);
         return result;
       } catch (error: unknown) {
@@ -673,12 +851,42 @@ const ZentridAuth: ZentridAuthAPI = (() => {
     return hasRole(requiredRole);
   }
 
-  function logout(redirect = true): void {
+  async function logout(redirect = true): Promise<void> {
+    const accessToken = getAccessToken();
     clearSession();
+
+    let backendLogout: Promise<void> = Promise.resolve();
+    if (accessToken) {
+      const headers = new Headers({
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`
+      });
+      backendLogout = fetch(`${ZentridConfig.authBaseUrl}/api/Auth/logout`, {
+        method: 'POST',
+        headers,
+        cache: 'no-store',
+        keepalive: true
+      }).then(response => {
+        window.dispatchEvent(new CustomEvent('zentrid:backend-logout', {
+          detail: { ok: response.ok, status: response.status }
+        }));
+      }).catch((error: unknown) => {
+        window.dispatchEvent(new CustomEvent('zentrid:backend-logout', {
+          detail: {
+            ok: false,
+            status: 0,
+            message: error instanceof Error ? error.message : 'Backend logout request failed.'
+          }
+        }));
+      });
+    }
+
     if (redirect) {
       const prefix = window.location.pathname.includes('/pages/') ? '../' : '';
       window.location.href = `${prefix}login.html`;
     }
+
+    await backendLogout;
   }
 
   return {
@@ -704,7 +912,7 @@ const ZentridAuth: ZentridAuthAPI = (() => {
   };
 })();
 
-const FleetAPI: FleetAPIClient = (() => {
+const ZentridAPI: ZentridAPIClient = (() => {
   async function request<T = unknown>(path: string, options: ZentridRequestOptions = {}): Promise<T> {
     return ZentridAuth.request<T>(path, { ...options, baseUrl: options.baseUrl || ZentridConfig.apiBaseUrl });
   }
@@ -719,4 +927,6 @@ const FleetAPI: FleetAPIClient = (() => {
 window.ZentridRequestError = ZentridRequestError;
 window.ZentridConfig = ZentridConfig;
 window.ZentridAuth = ZentridAuth;
+window.ZentridAPI = ZentridAPI;
+const FleetAPI = ZentridAPI;
 window.FleetAPI = FleetAPI;

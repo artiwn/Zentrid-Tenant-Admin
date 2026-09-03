@@ -2,7 +2,7 @@
    Keeps freshness UX separate from backend contracts and never invents mutations. */
 (function () {
   type FleetFreshnessStatus = 'live' | 'cached' | 'refreshing' | 'stale' | 'partial' | 'unavailable';
-  type FleetFreshnessResource = 'overview' | 'clients' | 'tenants' | 'plants' | 'devices' | 'alerts' | 'integrations' | 'client-detail' | 'tenant-detail' | 'plant-detail' | 'device-detail' | 'alert-detail' | 'integration-detail' | 'unknown';
+  type FleetFreshnessResource = 'overview' | 'clients' | 'tenants' | 'plants' | 'devices' | 'alerts' | 'telemetry' | 'integrations' | 'client-detail' | 'tenant-detail' | 'plant-detail' | 'device-detail' | 'alert-detail' | 'integration-detail' | 'unknown';
 
   interface FleetFreshnessSyncInput {
     liveState: string;
@@ -36,6 +36,21 @@
     autoRefreshAllowed: boolean;
   }
 
+  type FleetRecordFreshnessKind = 'plant' | 'device' | 'telemetry' | 'generic';
+  type FleetRecordFreshnessStatus = 'fresh' | 'stale' | 'very-stale' | 'unknown';
+
+  interface FleetRecordFreshnessResult {
+    status: FleetRecordFreshnessStatus;
+    label: string;
+    tone: 'success' | 'warning' | 'danger' | 'neutral';
+    ageMs: number | null;
+    ageLabel: string;
+    timestamp: string | null;
+    basis: string;
+    backendStatus: string;
+    contradictsBackend: boolean;
+  }
+
   const AUTO_OPTIONS = [0, 30_000, 60_000, 300_000];
   const STORAGE_PREFIX = 'zentrid_data_refresh_interval_v135:';
   const DEFAULT_STALE_AFTER_MS = 60_000;
@@ -55,8 +70,9 @@
       'devices.html': { resource: 'devices', label: 'Devices', staleAfterMs: 45_000, autoRefreshAllowed: true },
       'device-detail.html': { resource: 'device-detail', label: 'Device Detail', staleAfterMs: 60_000, autoRefreshAllowed: true },
       'alerts.html': { resource: 'alerts', label: 'Alerts', staleAfterMs: 30_000, autoRefreshAllowed: true },
+      'telemetry.html': { resource: 'telemetry', label: 'Telemetry', staleAfterMs: 30_000, autoRefreshAllowed: true },
       'alert-detail.html': { resource: 'alert-detail', label: 'Alert Detail', staleAfterMs: 45_000, autoRefreshAllowed: true },
-      'integrations.html': { resource: 'integrations', label: 'Integration Health', staleAfterMs: 120_000, autoRefreshAllowed: true }
+      'integrations.html': { resource: 'integrations', label: 'Integrations', staleAfterMs: 120_000, autoRefreshAllowed: true }
     };
     return configs[page] || { resource: 'unknown', label: 'Current data', staleAfterMs: DEFAULT_STALE_AFTER_MS, autoRefreshAllowed: false };
   }
@@ -109,6 +125,99 @@
     if (!value) return null;
     const timestamp = Date.parse(value);
     return Number.isFinite(timestamp) ? timestamp : null;
+  }
+
+  function recordObject(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  }
+
+  function recordValueAtPath(record: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<unknown>((current, key) => recordObject(current)[key], record);
+  }
+
+  function firstRecordTimestamp(record: Record<string, unknown>, paths: string[]): { value: string; path: string } | null {
+    for (const path of paths) {
+      const raw = recordValueAtPath(record, path);
+      if (raw === undefined || raw === null) continue;
+      const value = String(raw).trim();
+      if (!value || value === '—' || value.toLowerCase() === 'null' || value.toLowerCase() === 'undefined') continue;
+      if (parseDate(value) !== null) return { value, path };
+    }
+    return null;
+  }
+
+  function firstRecordText(record: Record<string, unknown>, paths: string[]): string {
+    for (const path of paths) {
+      const raw = recordValueAtPath(record, path);
+      if (raw === undefined || raw === null) continue;
+      const value = String(raw).trim();
+      if (value && value !== '—' && value.toLowerCase() !== 'null' && value.toLowerCase() !== 'undefined') return value;
+    }
+    return '';
+  }
+
+  function compactRecordAge(ageMs: number | null): string {
+    if (ageMs === null) return 'Timestamp unavailable';
+    if (ageMs < 60_000) return `${Math.max(1, Math.floor(ageMs / 1_000))} sec ago`;
+    if (ageMs < 3_600_000) return `${Math.max(1, Math.floor(ageMs / 60_000))} min ago`;
+    if (ageMs < 86_400_000) return `${Math.max(1, Math.floor(ageMs / 3_600_000))} hr ago`;
+    return `${Math.max(1, Math.floor(ageMs / 86_400_000))} d ago`;
+  }
+
+  function recordFreshnessPaths(kind: FleetRecordFreshnessKind): Array<{ label: string; paths: string[] }> {
+    if (kind === 'plant') return [
+      { label: 'Last data', paths: ['lastDataAt', 'raw.lastDataAt', 'raw.liveRecord.lastDataAt', 'raw.operationalData.lastDataAt', 'operationalData.lastDataAt', 'providerData.lastDataAt', 'lastData'] },
+      { label: 'Last sync', paths: ['lastSyncAt', 'raw.lastSyncAt', 'raw.lastSyncAtUtc', 'raw.liveRecord.lastSyncAt', 'raw.operationalData.lastSyncAt', 'operationalData.lastSyncAt'] }
+    ];
+    if (kind === 'device') return [
+      { label: 'Last communication', paths: ['lastSeenAt', 'liveDetail.lastSeenAtUtc', 'liveDetail.lastSeenAt', 'raw.telemetry.lastSeenAtUtc', 'raw.telemetry.lastSeenAt', 'raw.lastSeenAtUtc', 'raw.lastSeenAt', 'lastSeen'] },
+      { label: 'Last sync', paths: ['liveDetail.lastSyncAtUtc', 'liveDetail.lastSyncAt', 'raw.lastSyncAtUtc', 'raw.lastSyncAt', 'lastSyncAt'] }
+    ];
+    if (kind === 'telemetry') return [
+      { label: 'Measurement', paths: ['timestamp', 'measuredAtUtc', 'raw.timestamp', 'raw.measurement.timestamp', 'raw.measurement.measuredAtUtc', 'raw.recordedAtUtc', 'raw.collectedAtUtc'] }
+    ];
+    return [
+      { label: 'Last data', paths: ['lastDataAt', 'lastSeenAt', 'timestamp', 'lastSyncAt', 'lastSeen', 'lastData'] }
+    ];
+  }
+
+  function evaluateRecordFreshness(value: unknown, kind: FleetRecordFreshnessKind = 'generic'): FleetRecordFreshnessResult {
+    const record = recordObject(value);
+    let selected: { value: string; path: string; label: string } | null = null;
+    for (const group of recordFreshnessPaths(kind)) {
+      const match = firstRecordTimestamp(record, group.paths);
+      if (match) { selected = { ...match, label: group.label }; break; }
+    }
+    const backendStatus = firstRecordText(record, [
+      'freshness', 'dataQualityStatus', 'sourceStatus', 'liveDetail.dataQualityStatus',
+      'raw.dataQualityStatus', 'raw.status.dataQualityStatus', 'raw.vendorExtensions.dataFreshness'
+    ]);
+    if (!selected) {
+      return { status: 'unknown', label: 'Unknown', tone: 'neutral', ageMs: null, ageLabel: 'Timestamp unavailable', timestamp: null, basis: 'Freshness timestamp', backendStatus, contradictsBackend: false };
+    }
+    const timestampMs = parseDate(selected.value);
+    if (timestampMs === null) {
+      return { status: 'unknown', label: 'Unknown', tone: 'neutral', ageMs: null, ageLabel: 'Timestamp unavailable', timestamp: selected.value, basis: selected.label, backendStatus, contradictsBackend: false };
+    }
+    const ageMs = Math.max(0, Date.now() - timestampMs);
+    const hour = 3_600_000;
+    const day = 86_400_000;
+    const status: FleetRecordFreshnessStatus = ageMs <= hour ? 'fresh' : ageMs <= day ? 'stale' : 'very-stale';
+    const label = status === 'fresh' ? 'Fresh' : status === 'stale' ? 'Stale' : 'Very stale';
+    const tone = status === 'fresh' ? 'success' : status === 'stale' ? 'warning' : 'danger';
+    const backendToken = backendStatus.toLowerCase();
+    const backendClaimsFresh = backendToken === 'current' || backendToken === 'fresh' || backendToken === 'live' || backendToken === 'normal';
+    return {
+      status,
+      label,
+      tone,
+      ageMs,
+      ageLabel: compactRecordAge(ageMs),
+      timestamp: selected.value,
+      basis: selected.label,
+      backendStatus,
+      contradictsBackend: backendClaimsFresh && status !== 'fresh'
+    };
   }
 
   function relativeAge(ageMs: number | null): string {
@@ -210,7 +319,7 @@
       <div class="fleet-freshness-actions">
         <button type="button" class="secondary-btn compact" data-freshness-refresh ${snapshot.refreshing || !snapshot.online ? 'disabled' : ''}>${snapshot.refreshing ? 'Refreshing…' : 'Refresh'}</button>
         ${retryVisible ? `<button type="button" class="secondary-btn compact" data-freshness-retry ${snapshot.refreshing || !snapshot.online ? 'disabled' : ''}>Retry failed section</button>` : ''}
-        ${config.autoRefreshAllowed ? `<label class="fleet-auto-refresh"><span>Auto refresh</span><select data-freshness-auto aria-label="Auto refresh interval">${autoOptions}</select></label>` : ''}
+        ${config.autoRefreshAllowed ? `<label class="zentrid-auto-refresh"><span>Auto refresh</span><select data-freshness-auto aria-label="Auto refresh interval">${autoOptions}</select></label>` : ''}
       </div>`;
     scheduleAutoRefresh();
   }
@@ -319,6 +428,7 @@
     requestRefresh,
     setAutoRefresh,
     snapshot,
+    evaluateRecord: evaluateRecordFreshness,
     inferResource(): FleetFreshnessResource { return inferConfig().resource; },
     intervals: AUTO_OPTIONS.slice()
   };

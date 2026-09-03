@@ -297,7 +297,7 @@ function alertRow(a: FleetAlertRecord): string {
       <span class="badge ${alertTone(meta.severity)}">${meta.severity}</span>
       <span class="badge ${alertTone(alertDisplayStatus(a))}">${alertDisplayStatus(a)}</span>
       <div><strong>${a.created}</strong><small>${a.sla}</small></div>
-      <div class="row-actions kebabified"><div class="kebab-wrap global-action-wrap"><button type="button" class="kebab-btn" data-action="menu" aria-label="Open actions" title="Actions">⋮</button><div class="kebab-menu global-action-menu"><button data-action="open-alert" data-id="${a.id}" type="button">Open</button><button data-action="ack" data-id="${a.id}" type="button" disabled title="Alert mutations are not exposed by the current API">Ack</button></div></div></div>
+      <div class="row-actions kebabified"><div class="kebab-wrap global-action-wrap"><button type="button" class="kebab-btn" data-action="menu" aria-label="Open actions" title="Actions">⋮</button><div class="kebab-menu global-action-menu"><button data-action="open-alert" data-id="${a.id}" type="button">Open</button><button data-action="ack" data-id="${a.id}" data-permission-action="acknowledge" data-permission-resource="alert" data-permission-status="${alertDisplayStatus(a)}" type="button" ${/acknowledged|resolved|closed/i.test(alertDisplayStatus(a)) ? 'disabled data-permission-base-disabled="true"' : ''} title="Acknowledge this alert in the Alert Registry">Ack</button></div></div></div>
     </div>`;
 }
 
@@ -360,7 +360,7 @@ function openAlert(id: string): void {
   location.href = `${FleetLayout.pathFor('alert-detail')}?id=${encodeURIComponent(id)}`;
 }
 
-function applyAlertFilters(resetPage = true): void {
+function applyAlertFilters(resetPage = true, emitQuery = false): void {
   if (resetPage && !window.FleetRegistryQuery?.pagination('alerts')) ZentridAlertPager.page = 1;
   const kpiWrap = document.getElementById('alertKpiWrap');
   const host = document.getElementById('alertsTableHost');
@@ -372,7 +372,7 @@ function applyAlertFilters(resetPage = true): void {
   const plant = document.getElementById('plantFilter')?.value || 'All';
   const vendor = document.getElementById('vendorFilter')?.value || 'All';
   const search = (document.getElementById('alertSearch')?.value || '').trim();
-  window.FleetRegistryQuery?.update('alerts', { search: search || null, severity: severity === 'All' ? null : severity, alertStatus: status === 'All' ? null : status, tenant: null, plant: plant === 'All' ? null : plant, vendor: vendor === 'All' ? null : vendor }, { replace: true, emit: false });
+  window.FleetRegistryQuery?.update('alerts', { page: emitQuery ? 1 : undefined, search: search || null, severity: severity === 'All' ? null : severity, alertStatus: status === 'All' ? null : status, tenant: null, plant: plant === 'All' ? null : plant, vendor: vendor === 'All' ? null : vendor }, { replace: true, emit: emitQuery });
   const scope = document.getElementById('alertFilterScopeV126');
   if (scope) scope.innerHTML = window.FleetRegistryQuery?.filterScopeHtml('alerts') || '';
 }
@@ -399,10 +399,84 @@ function renderAlertsPage(): string {
     ${renderAlertsTable()}`;
 }
 
+function currentAlertActor(): string {
+  const session = ZentridPlatformAPI.auth.session();
+  return String(session?.user?.username || session?.user?.email || 'tenantadmin');
+}
+
+function alertAcknowledgeLocked(a: FleetAlertRecord): boolean {
+  return /acknowledged|resolved|closed/i.test(alertDisplayStatus(a));
+}
+
+async function acknowledgeAlertViaRegistry(a: FleetAlertRecord, button?: HTMLButtonElement): Promise<void> {
+  if (alertAcknowledgeLocked(a)) return;
+  const permission = window.FleetActionPermissions?.decide?.({ action: 'acknowledge', resource: 'alert', status: a.status, origin: a.dataOrigin || 'mixed' });
+  if (permission && !permission.allowed) throw new Error(permission.reason);
+  if (!window.FleetAPIMutations?.alerts?.acknowledge) throw new Error('Alert mutation layer is not available on this page.');
+
+  const previousText = button?.textContent || '';
+  if (button) {
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = 'Acknowledging…';
+  }
+  try {
+    const result = await FleetAPIMutations.alerts.acknowledge(a.id, {
+      actor: currentAlertActor(),
+      comment: 'Acknowledged from Tenant Admin Alert Detail'
+    });
+    FleetAPIMutations.unwrap(result);
+    a.status = 'Acknowledged';
+    window.FleetAPIRepositories?.cache.invalidate('alerts');
+    window.dispatchEvent(new CustomEvent('zentrid:data-refresh-request', { detail: { resource: 'alerts', forceRefresh: true } }));
+  } finally {
+    if (button && document.contains(button)) {
+      button.removeAttribute('aria-busy');
+      button.disabled = false;
+      button.textContent = previousText;
+    }
+  }
+}
+
+function activeAlertDetailTab(): string {
+  return document.querySelector<HTMLElement>('.alert-detail-nav-v71 button.active')?.dataset.tab || 'summary';
+}
+
+function rerenderAlertDetailState(a: FleetAlertRecord): void {
+  const activeTab = activeAlertDetailTab();
+  const hero = document.querySelector<HTMLElement>('.alert-detail-hero');
+  if (hero) hero.outerHTML = alertDetailHero(a, alertDetailModel(a));
+  const kpis = document.querySelector<HTMLElement>('.alert-detail-kpis');
+  if (kpis) {
+    kpis.outerHTML = `<section class="kpi-grid detail-kpis alert-detail-kpis">
+      <article class="kpi-card ${a.severity === 'Critical' ? 'red' : 'yellow'}"><span>Severity</span><strong>${a.severity}</strong><small>${a.priority}</small></article>
+      <article class="kpi-card"><span>Status</span><strong>${alertDisplayStatus(a)}</strong><small>${a.sla}</small></article>
+      <article class="kpi-card"><span>Owner</span><strong>${a.owner}</strong><small>Current assignment</small></article>
+      <article class="kpi-card"><span>Source</span><strong>${a.vendor}</strong><small>${a.source}</small></article>
+    </section>`;
+  }
+  const content = document.getElementById('alertDetailContent');
+  if (content) content.innerHTML = alertDetailTab(a, activeTab);
+  bindAlertDetailActions(a);
+  window.FleetActionPermissions?.refresh?.(document);
+}
+
 function wireAlertsPage(): void {
   document.querySelector('.main-content')?.addEventListener('click', (e: Event) => {
     const target = e.target instanceof Element ? e.target : null;
     if (!target) return;
+    const ack = target.closest<HTMLButtonElement>('[data-action="ack"]');
+    if (ack) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = ack.dataset.id || '';
+      const record = tenantScopedAlerts().find(alert => alert.id === id);
+      if (record) void acknowledgeAlertViaRegistry(record, ack).then(() => {
+        FleetLayout.toast(`Alert ${id} acknowledged by backend`);
+        applyAlertFilters(false);
+      }).catch(error => FleetLayout.toast(error instanceof Error ? error.message : `Unable to acknowledge ${id}`));
+      return;
+    }
     const open = target.closest('[data-action="open-alert"]') || target.closest('.alerts-table .data-row');
     if (open) {
       const id = open.dataset.id || open.dataset.alertId || open.closest('[data-alert-id]')?.dataset.alertId;
@@ -420,7 +494,7 @@ function wireAlertsPage(): void {
     if (target.closest('#clearAlertContext')) { clearAlertContext(); location.reload(); }
     if (target.closest('#exportAlerts')) FleetLayout.toast('Alert export queued');
   });
-  document.getElementById('alertSearch')?.addEventListener('input', () => FleetRuntimeStability.debounce('registry:alerts:search', () => applyAlertFilters(true), 220));
+  document.getElementById('alertSearch')?.addEventListener('input', () => FleetRuntimeStability.debounce('registry:alerts:search', () => applyAlertFilters(true, true), 220));
   ['severityFilter','statusFilter','plantFilter','vendorFilter'].forEach(id => document.getElementById(id)?.addEventListener('change', () => applyAlertFilters(true)));
 }
 
@@ -506,10 +580,25 @@ function bindAlertDetailActions(a: FleetAlertRecord): void {
       location.href = FleetLayout.pathFor('telemetry');
     };
   }
-  document.querySelectorAll<HTMLButtonElement>('[data-alert-api-unavailable]').forEach(button => {
-    button.disabled = true;
-    button.title = 'The current backend contract does not expose this alert mutation.';
+  document.querySelectorAll<HTMLButtonElement>('[data-alert-acknowledge]').forEach(button => {
+    const locked = alertAcknowledgeLocked(a);
+    button.disabled = locked;
+    button.dataset.permissionBaseDisabled = locked ? 'true' : 'false';
+    button.title = locked ? `Alert is already ${alertDisplayStatus(a)}.` : 'Acknowledge this alert in the canonical Alert Registry.';
+    button.onclick = () => {
+      if (button.disabled) return;
+      void acknowledgeAlertViaRegistry(a, button).then(() => {
+        FleetLayout.toast(`Alert ${a.id} acknowledged by backend`);
+        rerenderAlertDetailState(a);
+      }).catch(error => FleetLayout.toast(error instanceof Error ? error.message : `Unable to acknowledge ${a.id}`));
+    };
   });
+  document.querySelectorAll<HTMLButtonElement>('[data-alert-contract-pending]').forEach(button => {
+    button.disabled = true;
+    button.dataset.permissionBaseDisabled = 'true';
+    button.title = 'The Alert Registry endpoint exists, but the current Swagger snapshot does not publish the request DTO/operator fields. No guessed payload is sent.';
+  });
+  window.FleetActionPermissions?.refresh?.(document);
 }
 
 function alertDisplayStatus(a: FleetAlertRecord): string {
@@ -585,7 +674,7 @@ function alertDetailHero(a: FleetAlertRecord, m: AlertDetailModel): string {
         <div><span>Unified Category</span><strong>${alertCodeMeta(a).category}</strong></div>
         <div><span>Device Scope</span><strong>${alertCodeMeta(a).deviceScope}</strong></div>
         <div><span>Vendor Error Code</span><strong>${vendorCodeLabel(a)}</strong></div>
-        <div><span>Confirm Status</span><strong class="${m.confirmStatus === 'Confirmed' ? 'text-success' : 'text-warning'}">${m.confirmStatus}</strong><button class="mini-inline-action" data-alert-api-unavailable type="button" disabled>Confirm</button></div>
+        <div><span>Confirm Status</span><strong class="${m.confirmStatus === 'Confirmed' ? 'text-success' : 'text-warning'}">${m.confirmStatus}</strong><button id="detailAck" class="mini-inline-action" data-alert-acknowledge data-permission-action="acknowledge" data-permission-resource="alert" data-permission-status="${alertDisplayStatus(a)}" type="button" ${alertAcknowledgeLocked(a) ? 'disabled data-permission-base-disabled="true"' : ''}>Acknowledge</button></div>
         ${m.recoveryTime ? `<div><span>Recovery Time</span><strong>${m.recoveryTime}</strong></div>` : ''}
       </div>
     </section>`;
@@ -631,7 +720,7 @@ function alertDetailTab(a: FleetAlertRecord, tab: AlertDetailTabId | string): st
   const model = alertDetailModel(a);
   if (tab === 'classification') {
     const meta = alertCodeMeta(a);
-    return `<div class="split-grid alert-classification-tab"><div class="panel-lite"><h3>Zentrid Unified Code</h3><div class="info-grid"><div><span>Zentrid Code</span><strong>${a.fleetCode || '—'}</strong></div><div><span>Unified Name</span><strong>${meta.name}</strong></div><div><span>Category</span><strong>${meta.category}</strong></div><div><span>Severity</span><strong>${meta.severity}</strong></div><div><span>Device Scope</span><strong>${meta.deviceScope}</strong></div><div><span>Meaning</span><strong>${meta.meaning}</strong></div></div></div><div class="panel-lite"><div class="section-title-v17"><h3>Vendor Source Mapping</h3><span class="badge info">Read-only</span></div><div class="info-grid"><div><span>Vendor</span><strong>${a.vendor}</strong></div><div><span>Source Platform</span><strong>${a.source}</strong></div><div><span>Received Vendor Code</span><strong>${vendorCodeLabel(a)}</strong></div><div><span>Vendor Message</span><strong>${a.vendorMessage || a.title}</strong></div><div><span>Mapping Status</span><strong>${vendorMappingStatus(a)}</strong></div><div><span>Known Mapping</span><strong>${(meta.vendorMappings || []).join(' · ') || '—'}</strong></div><div><span>Integration</span><strong>${a.integration}</strong></div><div><span>Policy</span><strong>${meta.policy}</strong></div></div><div class="vertical-actions"><button onclick="location.href=FleetLayout.pathFor('alerts')">Back to Alerts</button><button data-alert-api-unavailable type="button">Create Technical Follow-up</button></div></div><div class="panel-lite full-span-v86"><h3>Mapping Validation Checklist</h3>${renderMappingValidation(a)}</div></div>`;
+    return `<div class="split-grid alert-classification-tab"><div class="panel-lite"><h3>Zentrid Unified Code</h3><div class="info-grid"><div><span>Zentrid Code</span><strong>${a.fleetCode || '—'}</strong></div><div><span>Unified Name</span><strong>${meta.name}</strong></div><div><span>Category</span><strong>${meta.category}</strong></div><div><span>Severity</span><strong>${meta.severity}</strong></div><div><span>Device Scope</span><strong>${meta.deviceScope}</strong></div><div><span>Meaning</span><strong>${meta.meaning}</strong></div></div></div><div class="panel-lite"><div class="section-title-v17"><h3>Vendor Source Mapping</h3><span class="badge info">Read-only</span></div><div class="info-grid"><div><span>Vendor</span><strong>${a.vendor}</strong></div><div><span>Source Platform</span><strong>${a.source}</strong></div><div><span>Received Vendor Code</span><strong>${vendorCodeLabel(a)}</strong></div><div><span>Vendor Message</span><strong>${a.vendorMessage || a.title}</strong></div><div><span>Mapping Status</span><strong>${vendorMappingStatus(a)}</strong></div><div><span>Known Mapping</span><strong>${(meta.vendorMappings || []).join(' · ') || '—'}</strong></div><div><span>Integration</span><strong>${a.integration}</strong></div><div><span>Policy</span><strong>${meta.policy}</strong></div></div><div class="vertical-actions"><button onclick="location.href=FleetLayout.pathFor('alerts')">Back to Alerts</button><button data-alert-contract-pending data-permission-action="task" data-permission-resource="alert" type="button" disabled>Create Technical Follow-up</button></div></div><div class="panel-lite full-span-v86"><h3>Mapping Validation Checklist</h3>${renderMappingValidation(a)}</div></div>`;
   }
   if (tab === 'case') return `<div class="split-grid incident-case-tab"><div class="panel-lite"><h3>Case Timeline</h3>${alertCaseTimeline(a)}</div><div class="panel-lite"><h3>Case Context</h3>${alertIncidentCaseBlock(a)}</div></div>`;
   if (tab === 'sop') return alertSopChecklistBlock(a);
@@ -639,8 +728,8 @@ function alertDetailTab(a: FleetAlertRecord, tab: AlertDetailTabId | string): st
     const timeline = Array.isArray(a.timeline) ? a.timeline.filter(Boolean) : [];
     return `<div class="split-grid"><div class="panel-lite"><h3>Event Timeline</h3>${timeline.length ? `<div class="timeline-mini">${timeline.map(item => `<p>${item}</p>`).join('')}</div>` : alertDetailEmptyState('No timeline records returned','The current alert API response does not include event history.')}</div><div class="panel-lite"><h3>SLA & Ownership</h3><div class="info-grid"><div><span>SLA</span><strong>${a.sla || '—'}</strong></div><div><span>Owner</span><strong>${a.owner || '—'}</strong></div><div><span>Created</span><strong>${a.created || '—'}</strong></div><div><span>Updated</span><strong>${a.updated || '—'}</strong></div></div></div></div>`;
   }
-  if (tab === 'related') return `<div class="split-grid"><div class="panel-lite"><h3>Source Context</h3><div class="info-grid"><div><span>Tenant</span><strong>${a.tenant || '—'}</strong></div><div><span>Plant</span><strong>${a.plant || '—'}</strong></div><div><span>Device</span><strong>${a.device || '—'}</strong></div><div><span>Integration</span><strong>${a.integration || '—'}</strong></div><div><span>Telemetry</span><strong>${a.telemetry || '—'}</strong></div><div><span>Metric</span><strong>${a.related?.telemetryMetric || '—'}</strong></div><div><span>Zentrid Alert Code</span><strong>${a.fleetCode || '—'}</strong></div><div><span>Vendor Error Code</span><strong>${vendorCodeLabel(a)}</strong></div></div></div><div class="panel-lite"><h3>Open Related</h3><div class="vertical-actions"><button id="openAlertPlant">Open Plant</button><button id="openAlertDevice">Open Device</button><button id="openAlertTelemetry">Open Telemetry</button><button data-alert-api-unavailable type="button">Open Incident Case</button></div></div></div>`;
-  if (tab === 'activity') return `<div class="split-grid"><div class="panel-lite"><h3>Operational Actions</h3><div class="vertical-actions"><button data-alert-api-unavailable type="button">Acknowledge Alert</button><button data-alert-api-unavailable type="button">Assign Owner</button><button data-alert-api-unavailable type="button">Create Technical Follow-up</button><button data-alert-api-unavailable type="button">Escalate</button><button data-alert-api-unavailable type="button" class="danger-action">Resolve Alert</button></div></div><div class="panel-lite"><h3>Activity Log</h3>${alertDetailEmptyState('No activity records returned','The current alert API response does not include operator activity or mutation history.')}</div></div>`;
+  if (tab === 'related') return `<div class="split-grid"><div class="panel-lite"><h3>Source Context</h3><div class="info-grid"><div><span>Tenant</span><strong>${a.tenant || '—'}</strong></div><div><span>Plant</span><strong>${a.plant || '—'}</strong></div><div><span>Device</span><strong>${a.device || '—'}</strong></div><div><span>Integration</span><strong>${a.integration || '—'}</strong></div><div><span>Telemetry</span><strong>${a.telemetry || '—'}</strong></div><div><span>Metric</span><strong>${a.related?.telemetryMetric || '—'}</strong></div><div><span>Zentrid Alert Code</span><strong>${a.fleetCode || '—'}</strong></div><div><span>Vendor Error Code</span><strong>${vendorCodeLabel(a)}</strong></div></div></div><div class="panel-lite"><h3>Open Related</h3><div class="vertical-actions"><button id="openAlertPlant">Open Plant</button><button id="openAlertDevice">Open Device</button><button id="openAlertTelemetry">Open Telemetry</button><button data-alert-contract-pending data-permission-action="task" data-permission-resource="alert" type="button" disabled>Open Incident Case</button></div></div></div>`;
+  if (tab === 'activity') return `<div class="split-grid"><div class="panel-lite"><h3>Operational Actions</h3><div class="vertical-actions"><button id="actionAck" data-alert-acknowledge data-permission-action="acknowledge" data-permission-resource="alert" data-permission-status="${alertDisplayStatus(a)}" type="button" ${alertAcknowledgeLocked(a) ? 'disabled data-permission-base-disabled="true"' : ''}>Acknowledge Alert</button><button data-alert-contract-pending data-permission-action="assign" data-permission-resource="alert" type="button" disabled>Assign Owner</button><button data-alert-contract-pending data-permission-action="task" data-permission-resource="alert" type="button" disabled>Create Technical Follow-up</button><button data-alert-contract-pending data-permission-action="escalate" data-permission-resource="alert" type="button" disabled>Escalate</button><button data-alert-contract-pending data-permission-action="resolve" data-permission-resource="alert" type="button" class="danger-action" disabled>Resolve Alert</button></div><small class="muted">Assign, Escalate, Resolve and Create Task are available in the backend API surface, but remain disabled until their request DTO/operator fields are published. FleetOS does not submit fabricated defaults.</small></div><div class="panel-lite"><h3>Activity Log</h3>${alertDetailEmptyState('No activity records returned','The current alert API response does not include operator activity or mutation history.')}</div></div>`;
   const reasonBlock = model.reason.length ? alertReasonBlock('Reason', '!', model.reason) : `<section class="alert-explain-card glass-card">${alertDetailEmptyState('No probable cause returned','The backend alert record does not include a probable cause.')}</section>`;
   const suggestionBlock = model.suggestion.length ? alertReasonBlock('Suggestion', '✓', model.suggestion) : `<section class="alert-explain-card glass-card">${alertDetailEmptyState('No recommendation returned','The backend alert record does not include a recommended action.')}</section>`;
   return `<div class="alert-summary-layout">${reasonBlock}${suggestionBlock}${alertCurveBlock(a, model)}<section class="alert-explain-card glass-card"><div class="alert-section-title"><span>i</span><h3>Operational Context</h3></div><div class="info-grid"><div><span>Category</span><strong>${a.category || '—'}</strong></div><div><span>Severity</span><strong>${a.severity || '—'}</strong></div><div><span>Device Scope</span><strong>${a.deviceType || '—'}</strong></div><div><span>Telemetry</span><strong>${a.telemetry || '—'}</strong></div><div><span>Case</span><strong>${a.related?.caseId || '—'}</strong></div><div><span>Task</span><strong>${a.related?.taskId || '—'}</strong></div><div><span>Zentrid Alert Code</span><strong>${a.fleetCode || '—'}</strong></div><div><span>Vendor Error Code</span><strong>${vendorCodeLabel(a)}</strong></div><div><span>Workflow Policy</span><strong>${alertCodeMeta(a).policy}</strong></div></div></section></div>`;

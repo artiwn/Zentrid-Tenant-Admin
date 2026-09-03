@@ -1,7 +1,7 @@
 type ZentridDeviceStatusTone = "success" | "warning" | "danger" | "info" | "neutral" | string;
 
 interface ZentridDeviceRecord {
-  [key: string]: string | number | boolean | null | undefined;
+  [key: string]: any;
   id: string;
   externalId?: string;
   name: string;
@@ -37,6 +37,31 @@ interface ZentridDeviceRecord {
   parent?: string;
   children?: string;
   location?: string;
+  linkedDevices?: unknown;
+  connectivityDetail?: unknown;
+  networkDetail?: unknown;
+  warrantyDetail?: unknown;
+  telemetryLatest?: unknown;
+  liveId?: string;
+  liveDetail?: unknown;
+  liveConnectivityDetail?: unknown;
+  liveNetworkDetail?: unknown;
+  liveWarrantyDetail?: unknown;
+  liveTelemetryLatest?: unknown;
+  liveLookupStatus?: string;
+  auditDetail?: unknown;
+  documents?: ZentridDeviceDocument[];
+}
+
+interface ZentridDeviceDocument {
+  id: string;
+  name: string;
+  type: string;
+  status?: string;
+  expiry?: string;
+  uploaded?: boolean;
+  fileName?: string;
+  filePath?: string;
 }
 
 interface ZentridDevicePagerState {
@@ -78,6 +103,16 @@ function normalizeDeviceTenant(device: ZentridDeviceRecord, tenantName = current
 }
 function deviceStatusCls(v: unknown): ZentridDeviceStatusTone { const text = String(v).toLowerCase(); if(text.includes('offline')||text.includes('fault')) return 'danger'; if(text.includes('warning')||text.includes('delayed')) return 'warning'; return 'success'; }
 function deviceStatusPill(d: ZentridDeviceRecord): string { return `<span class="badge ${deviceStatusCls(d.status)}">${d.status || 'Unknown'}</span>`; }
+function deviceUiFreshness(d: ZentridDeviceRecord): FleetRecordFreshnessResult {
+  return window.FleetDataFreshness?.evaluateRecord(d, 'device') || { status:'unknown', label:'Unknown', tone:'neutral', ageMs:null, ageLabel:'Timestamp unavailable', timestamp:null, basis:'Last communication', backendStatus:String(d.sourceStatus || ''), contradictsBackend:false };
+}
+function deviceFreshnessInline(d: ZentridDeviceRecord): string {
+  const freshness = deviceUiFreshness(d);
+  const backend = freshness.backendStatus || String(d.sourceStatus || '—');
+  const mismatch = freshness.contradictsBackend ? ' · backend status conflicts with timestamp' : '';
+  const title = `${freshness.basis}: ${freshness.timestamp || 'unavailable'}${backend && backend !== '—' ? ` · Backend: ${backend}` : ''}${mismatch}`;
+  return `<small title="${deviceEscape(title)}">${deviceEscape(freshness.label)} · ${deviceEscape(freshness.ageLabel)}${freshness.contradictsBackend ? ' · mismatch' : ''}</small>`;
+}
 function deviceRegistryRecords(): ZentridDeviceRecord[] {
   const tenantName = currentDeviceTenantScope();
   const liveRows = Array.isArray(window.ZentridLiveDevices) ? window.ZentridLiveDevices as ZentridDeviceRecord[] : [];
@@ -108,7 +143,7 @@ function wireDevices(): void {
     if(type.value!=='All Types') list=list.filter(d=>d.type===type.value);
     if(status.value!=='All Statuses') list=list.filter(d=>d.status===status.value);
     FleetRuntimeStability.replaceHtml(table, deviceRows(list));
-    window.FleetRegistryQuery?.update('devices', { search: q || null, deviceType: type.value === 'All Types' ? null : type.value, deviceStatus: status.value === 'All Statuses' ? null : status.value }, { replace: true, emit: false });
+    window.FleetRegistryQuery?.update('devices', { page: 1, search: q || null, deviceType: type.value === 'All Types' ? null : type.value, deviceStatus: status.value === 'All Statuses' ? null : status.value }, { replace: true, emit: true });
     const scope = document.getElementById('deviceFilterScopeV126');
     if (scope) scope.innerHTML = window.FleetRegistryQuery?.filterScopeHtml('devices') || '';
     bindRows();
@@ -145,6 +180,60 @@ function deviceValue(value: unknown, fallback = '—'): string {
   if (value === null || value === undefined || value === '') return fallback;
   const text = String(value).trim();
   return text && text.toLowerCase() !== 'undefined' && text.toLowerCase() !== 'null' ? text : fallback;
+}
+function deviceEscape(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[character] || character));
+}
+function deviceApiHumanValue(label: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  const token=String(label || '').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  if ((token.endsWith('connectstatus') || token.endsWith('connectionstatus')) && ['0','1'].includes(String(value))) return String(value) === '1' ? 'Connected' : 'Disconnected';
+  if (token.endsWith('onlinestatus') && ['0','1'].includes(String(value))) return String(value) === '1' ? 'Online' : 'Offline';
+  if ((token.endsWith('collectiontime') || token.endsWith('collectiontimestamp')) && /^\d{10,13}$/.test(String(value))) {
+    const raw=Number(value); const millis=String(value).length === 13 ? raw : raw * 1000; const date=new Date(millis);
+    if (Number.isFinite(date.getTime())) return date.toLocaleString();
+  }
+  return String(value);
+}
+function deviceApiValueRows(payload: unknown, prefix = '', depth = 0): Array<[string, string]> {
+  if (payload === null || payload === undefined || depth > 3) return [];
+  if (Array.isArray(payload)) return payload.slice(0, 20).flatMap((item, index) => deviceApiValueRows(item, `${prefix}${prefix ? ' · ' : ''}${index + 1}`, depth + 1));
+  if (typeof payload !== 'object') return [[prefix || 'Value', deviceApiHumanValue(prefix || 'Value', payload)]];
+  return Object.entries(payload as Record<string, unknown>).flatMap(([key, value]) => {
+    const label = `${prefix}${prefix ? ' · ' : ''}${key.replace(/([a-z])([A-Z])/g, '$1 $2')}`;
+    if (value !== null && typeof value === 'object') return deviceApiValueRows(value, label, depth + 1);
+    return [[label, deviceApiHumanValue(label, value)]];
+  });
+}
+function deviceApiPanel(title: string, payload: unknown, emptyText: string, sourceNote: string): string {
+  const rows=deviceApiValueRows(payload).slice(0, 60);
+  if (!rows.length) return `<div class="empty-state"><strong>${deviceEscape(emptyText)}</strong><small>The endpoint returned no displayable fields.</small></div>`;
+  return `<div class="section-title-v17 mini"><div><h3>${deviceEscape(title)}</h3><p class="muted">${deviceEscape(sourceNote)}</p></div></div><div class="info-grid">${rows.map(([label,value])=>`<div><span>${deviceEscape(label)}</span><strong>${deviceEscape(value)}</strong></div>`).join('')}</div>`;
+}
+function deviceLiveId(d: ZentridDeviceRecord): string {
+  const detail=d.liveDetail && typeof d.liveDetail === 'object' ? d.liveDetail as Record<string,unknown> : {};
+  return String(d.liveId || detail.deviceId || detail.id || '').trim();
+}
+function deviceLiveSubresourcePanel(d: ZentridDeviceRecord, title: string, payload: unknown, emptyText: string, suffix: string): string {
+  if (!deviceLiveId(d)) return `<div class="empty-state"><strong>Platform Live device not linked</strong><small>${deviceEscape(title)} was not requested because the Device Registry record could not be safely matched to a Platform Live device.</small></div>`;
+  return deviceApiPanel(title, payload, emptyText, `Platform Live API · GET /api/devices/{liveDeviceId}/${suffix}`);
+}
+function deviceTelemetryPanel(payload: unknown, sourceNote: string): string {
+  const rows=deviceApiValueRows(payload).slice(0,60);
+  if (!rows.length) return `<div class="empty-state"><strong>No latest telemetry returned</strong><small>The latest telemetry request completed without displayable measurement fields.</small></div>`;
+  return deviceApiPanel('Latest Telemetry', payload, 'No latest telemetry returned', sourceNote);
+}
+function linkedDevicesPanel(payload: unknown): string {
+  const record=payload && typeof payload === 'object' ? payload as Record<string,unknown> : {};
+  const items=Array.isArray(payload) ? payload : Array.isArray(record.items) ? record.items : Array.isArray(record.data) ? record.data : [];
+  if (!items.length) return `<div class="empty-state"><strong>No linked devices returned</strong><small>GET /api/admin/devices/{id}/linked-devices returned an empty collection.</small></div>`;
+  return `<div class="data-table compact-table subordinate-device-table-v59"><div class="data-head"><span>Status</span><span>Device Type</span><span>Model</span><span>Software Version</span><span>SN</span></div>${items.map(item=>{ const row=(item||{}) as Record<string,unknown>; return `<div class="data-row"><div><span class="badge ${deviceStatusCls(row.status)}">${deviceEscape(row.status || row.operationalStatus || 'Unknown')}</span></div><div><strong>${deviceEscape(row.deviceType || row.type || '—')}</strong></div><div><span>${deviceEscape(row.model || row.name || '—')}</span></div><div><span>${deviceEscape(row.firmwareVersion || row.softwareVersion || '—')}</span></div><div><span>${deviceEscape(row.serialNumber || row.serial || row.id || '—')}</span></div></div>`;}).join('')}</div>`;
+}
+function telemetryApiSummaryV1(d: ZentridDeviceRecord): string {
+  return `<div class="section-title-v17"><div><h2>Telemetry Summary</h2><p class="muted">Latest Device Registry telemetry and matching Platform Live telemetry are kept separate but shown in one Tenant workspace.</p></div></div>
+  <div class="section-title-v17 mini"><div><h3>Device Registry Latest Telemetry</h3><p class="muted">GET /api/admin/devices/{id}/telemetry/latest</p></div></div>${deviceTelemetryPanel(d.telemetryLatest, 'Device Registry API · GET /api/admin/devices/{id}/telemetry/latest')}
+  <div class="section-title-v17 mini"><div><h3>Platform Live Latest Telemetry</h3><p class="muted">GET /api/devices/{liveDeviceId}/telemetry/latest</p></div></div>${deviceLiveId(d) ? deviceTelemetryPanel(d.liveTelemetryLatest, 'Platform Live API · GET /api/devices/{liveDeviceId}/telemetry/latest') : `<div class="empty-state"><strong>Platform Live device not linked</strong><small>The Device Registry UUID is not assumed to be a Platform Live device id.</small></div>`}`;
 }
 function renderDeviceDetailUnavailable(message = 'The selected device was not returned by the backend API.'): string {
   return `<section class="page-hero device-hero-v58 device-hero-v59"><div><p class="eyebrow">Tenant Admin · Device Detail</p><h1>Device detail unavailable</h1><p class="muted">${message}</p></div><div class="hero-actions"><button class="secondary-action" type="button" onclick="location.href=FleetLayout.pathFor('devices')">Back to Device List</button></div></section><section class="panel glass-card">${deviceDetailEmptyState('No device record returned','Open Device List and select a record available from GET /api/devices.')}</section>`;
@@ -197,13 +286,14 @@ function telemetrySummaryPanelV92(d: ZentridDeviceRecord): string {
   ${cardGrid(rows, 'device-param-grid-v58')}`;
 }
 function lifecyclePanelV92(d: ZentridDeviceRecord): string {
-  return `<div class="section-title-v17"><div><h2>Lifecycle / Replacement History</h2><p class="muted">Device lifecycle fields returned by the backend contract.</p></div></div>
+  return `<div class="section-title-v17"><div><h2>Lifecycle / Replacement History</h2><p class="muted">Administrative lifecycle comes from DeviceRegistry; warranty and audit are loaded from dedicated endpoints.</p></div></div>
   <div class="device-lifecycle-summary-v92">
-    <article><span>Lifecycle Status</span><strong>${deviceValue(d.lifecycle)}</strong><small>Current device registry state</small></article>
-    <article><span>Commissioning Date</span><strong>${deviceValue(d.installation)}</strong><small>Returned by the device API when available</small></article>
-    <article><span>Warranty Until</span><strong>${deviceValue(d.warranty)}</strong><small>Returned by the device API when available</small></article>
+    <article><span>Lifecycle Status</span><strong>${deviceValue(d.lifecycle)}</strong><small>Current Device Registry state</small></article>
+    <article><span>Operational Status</span><strong>${deviceValue(d.status)}</strong><small>${deviceValue(d.lastSeen)}</small></article>
+    <article><span>Commissioning Date</span><strong>${deviceValue(d.installation)}</strong><small>First operational binding</small></article>
+    <article><span>Warranty Until</span><strong>${deviceValue(d.warranty)}</strong><small>Warranty tracking</small></article>
   </div>
-  <div class="timeline-v17 device-lifecycle-v92">${deviceDetailEmptyState('No lifecycle events returned','The current API contract does not expose service, replacement or warranty event history.')}</div>`;
+  <div class="panel-lite"><strong>Lifecycle audit is available in the Audit tab.</strong><small>GET /api/admin/devices/{id}/audit is loaded on demand.</small></div>`;
 }
 function relatedObjectsPanelV92(d: ZentridDeviceRecord): string {
   const plant = deviceRelatedPlant(d);
@@ -226,13 +316,61 @@ function relatedObjectsPanelV92(d: ZentridDeviceRecord): string {
     <div class="data-row"><div><strong>Service Team</strong></div><div><span>—</span></div><div><small>No service-team relation endpoint is available in the current API contract</small></div><div><button class="small-btn" type="button" disabled>Open Access</button></div></div>
   </div>`;
 }
-function deviceDocumentsPanelV92(_d: ZentridDeviceRecord): string {
-  return `<div class="section-title-v17"><div><h2>Documents</h2><p class="muted">Device-level documents for support, warranty, commissioning and compliance.</p></div></div>
-  <div class="document-grid-v17 device-documents-v92">${deviceDetailEmptyState('No document records returned','A device document endpoint is not available in the current API contract.')}</div>`;
+const DEVICE_DOCUMENT_TYPES = ['Technical','Commercial','Legal','Compliance','Warranty','Manual','Other'];
+function deviceDocumentCacheKey(deviceId: string): string { return `zentrid_device_documents_${deviceId}`; }
+function readDeviceDocumentCache(deviceId: string): ZentridDeviceDocument[] {
+  try {
+    const parsed=JSON.parse(sessionStorage.getItem(deviceDocumentCacheKey(deviceId)) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_error) { return []; }
 }
-function deviceAuditPanelV92(_d: ZentridDeviceRecord): string {
-  return `<div class="section-title-v17"><div><h2>Audit</h2><p class="muted">Immutable device change trail across registry, integration, topology and user actions.</p></div></div>
-  <div class="timeline-v17 device-audit-v92">${deviceDetailEmptyState('No audit records returned','The current device API response does not include an audit timeline.')}</div>`;
+function writeDeviceDocumentCache(deviceId: string, documents: ZentridDeviceDocument[]): void {
+  try { sessionStorage.setItem(deviceDocumentCacheKey(deviceId), JSON.stringify(documents)); } catch (_error) { /* best effort */ }
+}
+function deviceDocuments(d: ZentridDeviceRecord): ZentridDeviceDocument[] {
+  const apiDocuments=Array.isArray(d.documents) ? d.documents.filter(item => item && typeof item === 'object') : [];
+  const cached=readDeviceDocumentCache(d.id);
+  return [...apiDocuments, ...cached].reduce<ZentridDeviceDocument[]>((items, raw) => {
+    const item=raw as ZentridDeviceDocument;
+    const key=String(item.id || item.filePath || item.fileName || '').trim();
+    if (!key || items.some(existing => String(existing.id || existing.filePath || existing.fileName) === key)) return items;
+    items.push(item);
+    return items;
+  }, []);
+}
+function deviceDocumentsPanelV92(d: ZentridDeviceRecord): string {
+  const documents=deviceDocuments(d);
+  const rows=documents.length ? documents.map(document => `<div class="data-row" data-device-document-id="${deviceValue(document.id)}"><div><strong>${deviceValue(document.name || document.fileName || 'Device document')}</strong><small>${deviceValue(document.fileName || 'Stored file')}</small></div><div><span>${deviceValue(document.type || 'Other')}</span></div><div><span class="badge ${String(document.status || '').toLowerCase()==='pending' ? 'warning' : 'success'}">${deviceValue(document.status || 'Uploaded')}</span></div><div><span>${deviceValue(document.expiry || '—')}</span></div><div class="mini-row-actions"><button class="small-btn" type="button" data-download-device-document="${deviceValue(document.id)}" data-permission-action="document" data-permission-resource="device">Download</button><button class="danger-action" type="button" data-delete-device-document="${deviceValue(document.id)}" data-permission-action="document" data-permission-resource="device">Delete</button></div></div>`).join('') : '<div class="empty-state"><strong>No device documents</strong><small>No document records were returned with this device. You can upload a new document below.</small></div>';
+  return `<div class="section-title-v17"><div><h2>Documents</h2><p class="muted">Upload, download and delete files through DeviceRegistry document endpoints.</p></div></div>
+  <form id="deviceDocumentUploadForm" class="glass-card compact-form device-document-upload-v141" novalidate>
+    <div class="form-grid">
+      <label>Document Name<input id="deviceDocumentName" name="name" required placeholder="Document name"></label>
+      <label>Type<select id="deviceDocumentType" name="type">${DEVICE_DOCUMENT_TYPES.map(type => `<option value="${type}">${type}</option>`).join('')}</select></label>
+      <label>Expiry<input id="deviceDocumentExpiry" name="expiry" type="datetime-local"></label>
+      <label class="full">File<input id="deviceDocumentFile" name="file" type="file" required></label>
+    </div>
+    <div id="deviceDocumentFeedback" class="api-inline-result" aria-live="polite"></div>
+    <div class="drawer-actions"><button class="primary-action" type="submit" data-permission-action="document" data-permission-resource="device">Upload Document</button></div>
+  </form>
+  <div class="data-table compact-table device-document-table-v141"><div class="data-head"><span>Document</span><span>Type</span><span>Status</span><span>Expiry</span><span>Actions</span></div>${rows}</div>`;
+}
+function deviceAuditEntries(payload: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(payload)) return payload.filter(item => item && typeof item === 'object') as Array<Record<string, unknown>>;
+  if (!payload || typeof payload !== 'object') return [];
+  const record=payload as Record<string, unknown>;
+  for (const key of ['items','data','auditHistory','history']) {
+    const value=record[key];
+    if (Array.isArray(value)) return value.filter(item => item && typeof item === 'object') as Array<Record<string, unknown>>;
+  }
+  return [];
+}
+function deviceAuditTimeline(payload: unknown): string {
+  const entries=deviceAuditEntries(payload);
+  if (!entries.length) return deviceDetailEmptyState('No audit entries returned','GET /api/admin/devices/{id}/audit returned an empty collection.');
+  return `<div class="timeline-v17 device-api-audit-v141">${entries.map(entry=>{ const occurred=entry.occurredAtUtc || entry.occurredAt || entry.timestamp || '—'; const action=entry.action || 'Activity'; const summary=entry.summary || entry.message || 'Device activity recorded.'; const actor=entry.actor || entry.user || 'System'; const changes=entry.changes && typeof entry.changes==='object' ? Object.entries(entry.changes as Record<string,unknown>).map(([key,value])=>`${key.replace(/([a-z])([A-Z])/g,'$1 $2')}: ${String(value)}`).join(' · ') : ''; return `<div><b>${deviceValue(occurred)}</b><span><strong>${deviceValue(action)}</strong> · ${deviceValue(summary)}<small>${deviceValue(actor)}${changes ? ` · ${deviceValue(changes)}` : ''}</small></span></div>`;}).join('')}</div>`;
+}
+function deviceAuditPanelV92(d: ZentridDeviceRecord): string {
+  return `<div class="section-title-v17"><div><h2>Audit</h2><p class="muted">Server-recorded device create, update and lifecycle activity from DeviceRegistry.</p></div></div>${deviceAuditTimeline(d.auditDetail)}`;
 }
 /* v59 Device Detail v2: type-driven workspace, topology and architecture */
 function isType(d: ZentridDeviceRecord, name: string): boolean { return String(d.type || '').toLowerCase().includes(name); }
@@ -270,7 +408,7 @@ function deviceRows(list: ZentridDeviceRecord[]): string {
     ? { total: serverPagination.totalCount, pages: serverPagination.totalPages, page: serverPagination.page, start: (serverPagination.page - 1) * serverPagination.pageSize, end: Math.min(serverPagination.page * serverPagination.pageSize, serverPagination.totalCount), rows: list }
     : pageSlice(list, ZentridDevicePager);
   const pager = serverPagination ? window.FleetRegistryQuery?.pagerHtml('devices', list.length) || '' : pagerHtml('device', state);
-  return `${pager}<div class="data-table device-table"><div class="data-head"><span>Device</span><span>Plant / Tenant Scope</span><span>Type</span><span>Vendor Source</span><span>Status</span><span>Actions</span></div>${state.rows.map(d=>`<div class="data-row" data-id="${d.id}"><div>${FleetDataSource.badge(d, 'device')}<strong>${d.name}</strong><small>${d.id}<br>${d.serial}</small></div><div><strong>${d.plant}</strong><small>${d.tenant}</small></div><div><strong>${d.type}</strong><small>${d.subtype} · ${d.capacity}</small></div><div><strong>${d.vendor}</strong><small>${d.integration}<br>${d.sourceStatus}</small></div><div><span class="badge ${deviceStatusCls(d.status)}">${d.status}</span><small>${d.alerts} alerts · ${d.lastSeen}</small></div><div class="row-actions"><button data-action="open" data-permission-action="view" data-permission-resource="device">Open</button><button data-action="plant" data-permission-action="view" data-permission-resource="plant">Plant</button><button data-action="telemetry" data-permission-action="view" data-permission-resource="device">Telemetry</button><button data-action="alerts" data-permission-action="view" data-permission-resource="device">Alerts</button></div></div>`).join('')}</div>${pager}`;
+  return `${pager}<div class="data-table device-table"><div class="data-head"><span>Device</span><span>Plant / Tenant Scope</span><span>Type</span><span>Vendor Source</span><span>Status</span><span>Actions</span></div>${state.rows.map(d=>`<div class="data-row" data-id="${d.id}"><div>${FleetDataSource.badge(d, 'device')}<strong>${d.name}</strong><small>${d.id}<br>${d.serial}</small></div><div><strong>${d.plant}</strong><small>${d.tenant}</small></div><div><strong>${d.type}</strong><small>${d.subtype} · ${d.capacity}</small></div><div><strong>${d.vendor}</strong><small>${d.integration}<br>${d.sourceStatus}</small></div><div><span class="badge ${deviceStatusCls(d.status)}">${d.status}</span><small>${d.alerts} alerts · ${d.lastSeen}</small>${deviceFreshnessInline(d)}</div><div class="row-actions"><button data-action="open" data-permission-action="view" data-permission-resource="device">Open</button><button data-action="plant" data-permission-action="view" data-permission-resource="plant">Plant</button><button data-action="telemetry" data-permission-action="view" data-permission-resource="device">Telemetry</button><button data-action="alerts" data-permission-action="view" data-permission-resource="device">Alerts</button></div></div>`).join('')}</div>${pager}`;
 }
 function renderDevices(): string {
   const all=deviceRegistryRecords();
@@ -305,7 +443,11 @@ function devicePrimaryMetric(d: ZentridDeviceRecord): ZentridDevicePrimaryMetric
 }
 function deviceHeroActions(d: ZentridDeviceRecord): string {
   const plantId = deviceValue(d.plantId);
-  return `<button class="secondary-action" type="button" onclick="location.href=FleetLayout.pathFor('devices')">Back to Device List</button><button class="secondary-action" type="button" ${plantId === '—' ? 'disabled' : ''} onclick="localStorage.setItem('zentrid_selected_plant','${plantId}');location.href=FleetLayout.pathFor('plant-detail')">Open Plant</button><button class="primary-action" type="button" id="refreshDeviceV59">Refresh</button>`;
+  const lifecycle=String(d.lifecycle || '').trim().toLowerCase();
+  const lifecycleActions = lifecycle === 'archived'
+    ? ''
+    : `${lifecycle === 'active' ? `<button class="secondary-action" type="button" data-device-lifecycle-action="deactivate" data-permission-action="deactivate" data-permission-resource="device" data-permission-status="${deviceValue(d.lifecycle)}">Deactivate</button>` : `<button class="secondary-action" type="button" data-device-lifecycle-action="activate" data-permission-action="activate" data-permission-resource="device" data-permission-status="${deviceValue(d.lifecycle)}">Activate</button>`}<button class="secondary-action danger-action" type="button" data-device-lifecycle-action="archive" data-permission-action="archive" data-permission-resource="device" data-permission-status="${deviceValue(d.lifecycle)}">Archive</button>`;
+  return `<button class="secondary-action" type="button" onclick="location.href=FleetLayout.pathFor('devices')">Back to Device List</button><button class="secondary-action" type="button" ${plantId === '—' ? 'disabled' : ''} onclick="localStorage.setItem('zentrid_selected_plant','${plantId}');location.href=FleetLayout.pathFor('plant-detail')">Open Plant</button>${lifecycleActions}<button class="primary-action" type="button" id="refreshDeviceV59">Refresh</button>`;
 }
 function deviceKpis(d: ZentridDeviceRecord): string {
   const primary=devicePrimaryMetric(d);
@@ -399,21 +541,22 @@ function batteryDetail(d: ZentridDeviceRecord): string {
   return `<div class="device-battery-visual-v59"><div class="battery-gauge-v59"><strong>${deviceMetricValue(d,'soc')}</strong><span>SOC</span></div><div>${cardGrid([['Battery Voltage',deviceMetricValue(d,'voltage')],['Battery Current',deviceMetricValue(d,'current')],['Battery Health',deviceMetricValue(d,'soh')],['Temp',deviceMetricValue(d,'temperature')],['Package Quantity',deviceMetricValue(d,'packages')]],'device-param-grid-v58 compact-v59')}</div></div><div class="section-title-v17 mini"><div><h3>Charge / Discharge Limits</h3><p class="muted">Values returned by the current device API response.</p></div></div>${cardGrid([['Charge End Voltage',deviceMetricValue(d,'chargeVoltage')],['Discharge End Voltage',deviceMetricValue(d,'dischargeVoltage')],['Charge Limit Current',deviceMetricValue(d,'chargeCurrent')],['Discharge Limit Current',deviceMetricValue(d,'dischargeCurrent')]], 'device-param-grid-v58')}`;
 }
 function configurationPanel(d: ZentridDeviceRecord): string {
-  return `<div class="section-title-v17"><div><h2>Configuration Snapshot</h2><p class="muted">Read-only configuration fields returned by the current device API response.</p></div><span class="badge info">Read-only</span></div>${cardGrid([['Firmware',deviceValue(d.firmware)],['Protocol Version',deviceValue(d.protocol)],['Snapshot Source',deviceValue(d.sourceSystem || d.vendor)],['Tenant Access','Read-only']])}<div class="panel-lite device-readonly-note-v142"><h3>Configuration Parameters</h3>${deviceDetailEmptyState('No configuration payload returned','The current API contract does not expose device parameter sets, remote commands or firmware actions.')}</div>`;
+  const commandReason='POST /api/admin/devices/{id}/commands exists, but the current Swagger snapshot does not expose a request DTO. FleetOS will not invent a command payload.';
+  return `<div class="section-title-v17"><div><h2>Configuration Snapshot</h2><p class="muted">Read-only configuration fields returned by the current device API response.</p></div><span class="badge info">Read-only</span></div>${cardGrid([['Firmware',deviceValue(d.firmware)],['Protocol Version',deviceValue(d.protocol)],['Snapshot Source',deviceValue(d.sourceSystem || d.vendor)],['Tenant Access','Read-only']])}<div class="panel-lite device-readonly-note-v142"><h3>Remote Commands</h3><div class="empty-state"><strong>Command contract pending</strong><small>${commandReason}</small></div></div>`;
 }
 function deviceLazyPanel(tab: ZentridDeviceTab, content: string): string {
   return window.FleetDetailLazyTabs?.panel('device', String(tab || 'overview'), content) || content;
 }
 function deviceDetailPanel(d: ZentridDeviceRecord, tab: ZentridDeviceTab): string {
   if(tab==='overview') return `<div class="section-title-v17"><div><h2>Device Overview</h2><p class="muted">Type-driven workspace: ${deviceTypeLabel(d)} shows only fields returned by the backend API.</p></div></div><div class="device-overview-grid-v58"><article><span>Status</span><strong>${deviceStatusPill(d)}</strong><small>${deviceValue(d.lastSeen)}</small></article><article><span>Plant</span><strong>${deviceValue(d.plant)}</strong><small>${deviceValue(d.tenant)}</small></article><article><span>Vendor / Model</span><strong>${deviceValue(d.vendor)}</strong><small>${deviceValue(d.model)}</small></article><article><span>Serial Number</span><strong>${deviceValue(d.serial)}</strong><small>${deviceValue(d.id)}</small></article></div><div class="section-title-v17 mini"><div><h3>Realtime Snapshot</h3><p class="muted">Current values returned in the device record.</p></div></div>${operatingDataGrid(d)}`;
-  if(tab==='telemetry'||tab==='monitoring') return deviceLazyPanel(tab, telemetrySummaryPanelV92(d));
+  if(tab==='telemetry'||tab==='monitoring') return deviceLazyPanel(tab, telemetryApiSummaryV1(d));
   if(tab==='architecture') return deviceLazyPanel(tab, `<div class="section-title-v17"><div><h2>Architecture</h2><p class="muted">Plant, parent and child relations returned by the device API.</p></div></div>${architectureFlow(d)}${architectureRelations(d)}`);
   if(tab==='strings') return `<div class="section-title-v17"><div><h2>PV Strings / Inputs</h2><p class="muted">MPPT and PV input values returned by the device source.</p></div></div>${stringRows(d)}`;
   if(tab==='battery') return `<div class="section-title-v17"><div><h2>Battery State</h2><p class="muted">Storage-specific values returned by the device API.</p></div></div>${batteryDetail(d)}`;
   if(tab==='connectivity') {
     const children = deviceChildRecords(d);
     const rows = children.map(child => `<div class="data-row"><div><span class="badge ${deviceStatusCls(child.status)}">${deviceValue(child.status)}</span></div><div><strong>${deviceValue(child.type)}</strong></div><div><span>${deviceValue(child.model)}</span></div><div><span>${deviceValue(child.firmware)}</span></div><div><span>${deviceValue(child.serial)}</span></div></div>`).join('');
-    return `<div class="section-title-v17"><div><h2>Connectivity</h2><p class="muted">Logger / communication module status and subordinate API records.</p></div></div>${operatingDataGrid(d)}<div class="section-title-v17 mini"><div><h3>Subordinate Devices</h3><p class="muted">Devices whose parent relation references this record.</p></div></div><div class="data-table compact-table subordinate-device-table-v59"><div class="data-head"><span>Status</span><span>Device Type</span><span>Model</span><span>Software Version</span><span>SN</span></div>${rows || `<div class="data-row"><div>${deviceDetailEmptyState('No subordinate devices returned','No device record references this logger or communication module as its parent.')}</div></div>`}</div>`;
+    return `<div class="section-title-v17"><div><h2>Connectivity</h2><p class="muted">Logger / communication module status plus backend connectivity, network and linked-device subresources.</p></div></div>${operatingDataGrid(d)}${deviceApiPanel('Device Registry Connectivity', d.connectivityDetail, 'No Device Registry connectivity returned', 'GET /api/admin/devices/{id}/connectivity')}${deviceLiveSubresourcePanel(d, 'Platform Live Connectivity', d.liveConnectivityDetail, 'No Platform Live connectivity returned', 'connectivity')}${deviceApiPanel('Device Registry Network', d.networkDetail, 'No Device Registry network returned', 'GET /api/admin/devices/{id}/network')}${deviceLiveSubresourcePanel(d, 'Platform Live Network', d.liveNetworkDetail, 'No Platform Live network returned', 'network')}<div class="section-title-v17 mini"><div><h3>Linked Devices</h3><p class="muted">GET /api/admin/devices/{id}/linked-devices</p></div></div>${d.linkedDevices !== undefined ? linkedDevicesPanel(d.linkedDevices) : (rows ? `<div class="data-table compact-table subordinate-device-table-v59"><div class="data-head"><span>Status</span><span>Device Type</span><span>Model</span><span>Software Version</span><span>SN</span></div>${rows}</div>` : deviceDetailEmptyState('Linked devices not loaded yet','Open this tab to load connectivity, network and linked-device subresources.'))}`;
   }
   if(tab==='measurements') return `<div class="section-title-v17"><div><h2>Measurements</h2><p class="muted">Meter values returned by the current device API response.</p></div></div>${operatingDataGrid(d)}${cardGrid([['Total Import',deviceMetricValue(d,'import')],['Total Export',deviceMetricValue(d,'export')],['Accounting Source',deviceValue(d.sourceSystem || d.vendor)],['Data Status',deviceValue(d.dataQualityStatus || d.sourceStatus)]])}`;
   if(tab==='weather') return `<div class="section-title-v17"><div><h2>Weather Data</h2><p class="muted">Weather values returned by the current device API response.</p></div></div>${operatingDataGrid(d)}`;
@@ -425,11 +568,11 @@ function deviceDetailPanel(d: ZentridDeviceRecord, tab: ZentridDeviceTab): strin
     return deviceLazyPanel(tab, `<div class="section-title-v17"><div><h2>Alerts / Faults</h2><p class="muted">Device-level records loaded from GET /api/alerts.</p></div></div><div class="data-table compact-table device-alert-table-v58"><div class="data-head"><span>Alert</span><span>Severity</span><span>Source</span><span>Time</span><span>Status</span></div>${rows || `<div class="data-row"><div>${deviceDetailEmptyState('No related alerts returned','The alert API returned no record linked to this device.')}</div></div>`}</div><div class="drawer-actions"><button class="primary-action" onclick='localStorage.setItem("zentrid_alert_context", JSON.stringify({deviceId:"${d.id}", plantId:"${d.plantId}", tenant:"${d.tenant}"})); location.href=FleetLayout.pathFor("alerts")'>Open Alerts Center</button></div>`);
   }
   if(tab==='configuration') return configurationPanel(d);
-  if(tab==='activity') return `<div class="section-title-v17"><div><h2>Activity Log</h2><p class="muted">Telemetry refresh, configuration changes, firmware and repair history.</p></div></div><div class="timeline-v17">${deviceDetailEmptyState('No activity records returned','The current device API response does not include activity history.')}</div>`;
+  if(tab==='activity') return deviceLazyPanel(tab, `<div class="section-title-v17"><div><h2>Activity Log</h2><p class="muted">Server-recorded device activity from DeviceRegistry.</p></div></div>${deviceAuditTimeline(d.auditDetail)}`);
   if(tab==='source') return `<div class="section-title-v17"><div><h2>Source & Sync</h2><p class="muted">Vendor traceability and canonical mapping state.</p></div></div><div class="info-grid"><div><span>Integration</span><strong>${deviceValue(d.integration)}</strong></div><div><span>Vendor</span><strong>${deviceValue(d.vendor)}</strong></div><div><span>External ID</span><strong>${deviceValue(d.externalId)}</strong></div><div><span>Zentrid ID</span><strong>${deviceValue(d.id)}</strong></div><div><span>Mapping Status</span><strong>${deviceValue(d.sourceStatus)}</strong></div><div><span>Last Seen</span><strong>${deviceValue(d.lastSeen)}</strong></div><div><span>Source System</span><strong>${deviceValue(d.sourceSystem || d.vendor)}</strong></div><div><span>Alarm Status</span><strong>${deviceValue(d.alarmStatus)}</strong></div></div>`;
-  if(tab==='passport') return devicePassportPanelV92(d);
-  if(tab==='connectivity-full') return deviceConnectivityFullPanelV92(d);
-  if(tab==='lifecycle') return lifecyclePanelV92(d);
+  if(tab==='passport') return deviceLazyPanel(tab, devicePassportPanelV92(d) + deviceApiPanel('Device Registry Warranty', d.warrantyDetail, 'No Device Registry warranty returned', 'GET /api/admin/devices/{id}/warranty') + deviceLiveSubresourcePanel(d, 'Platform Live Warranty', d.liveWarrantyDetail, 'No Platform Live warranty returned', 'warranty'));
+  if(tab==='connectivity-full') return deviceLazyPanel(tab, deviceConnectivityFullPanelV92(d) + deviceApiPanel('Device Registry Connectivity', d.connectivityDetail, 'No Device Registry connectivity returned', 'GET /api/admin/devices/{id}/connectivity') + deviceLiveSubresourcePanel(d, 'Platform Live Connectivity', d.liveConnectivityDetail, 'No Platform Live connectivity returned', 'connectivity') + deviceApiPanel('Device Registry Network', d.networkDetail, 'No Device Registry network returned', 'GET /api/admin/devices/{id}/network') + deviceLiveSubresourcePanel(d, 'Platform Live Network', d.liveNetworkDetail, 'No Platform Live network returned', 'network') + `<div class="section-title-v17 mini"><div><h3>Linked Devices</h3><p class="muted">GET /api/admin/devices/{id}/linked-devices</p></div></div>${linkedDevicesPanel(d.linkedDevices)}`);
+  if(tab==='lifecycle') return deviceLazyPanel(tab, lifecyclePanelV92(d) + deviceApiPanel('Device Registry Warranty', d.warrantyDetail, 'No Device Registry warranty returned', 'GET /api/admin/devices/{id}/warranty') + deviceLiveSubresourcePanel(d, 'Platform Live Warranty', d.liveWarrantyDetail, 'No Platform Live warranty returned', 'warranty'));
   if(tab==='related') return deviceLazyPanel(tab, relatedObjectsPanelV92(d));
   if(tab==='documents') return deviceDocumentsPanelV92(d);
   if(tab==='audit') return deviceAuditPanelV92(d);
@@ -443,14 +586,114 @@ function renderDeviceDetail(): string {
   ${deviceKpis(d)}
   <section class="detail-layout-v58 device-detail-layout-v58 device-detail-layout-v59">${universalDeviceSidebar(d, deviceDetailActiveTab)}<main class="glass-card detail-main-v58"><div id="deviceDetailContent">${deviceDetailPanel(d,deviceDetailActiveTab)}</div></main></section>`;
 }
+function deviceDocumentFeedback(tone: string, title: string, message: string): void {
+  const box=document.getElementById('deviceDocumentFeedback');
+  if (!box) return;
+  box.className=`api-inline-result ${tone}`;
+  box.innerHTML=`<strong>${deviceValue(title)}</strong><small>${deviceValue(message)}</small>`;
+}
+async function downloadDeviceDocument(deviceId: string, deviceDocument: ZentridDeviceDocument): Promise<void> {
+  const payload=await window.ZentridPlatformAPI.deviceRegistry.getDocument(deviceId, deviceDocument.id);
+  const blob=payload instanceof Blob ? payload : new Blob([typeof payload === 'string' ? payload : JSON.stringify(payload ?? {})], { type:'application/octet-stream' });
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=deviceDocument.fileName || deviceDocument.name || 'device-document';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function wireDeviceDocuments(d: ZentridDeviceRecord): void {
+  window.FleetActionPermissions?.refresh(document);
+  const form=document.getElementById('deviceDocumentUploadForm') as HTMLFormElement | null;
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!window.FleetActionPermissions?.guard({ action:'document' as any, resource:'device', record:d, status:d.lifecycle })) return;
+    const fileInput=document.getElementById('deviceDocumentFile') as HTMLInputElement | null;
+    const nameInput=document.getElementById('deviceDocumentName') as HTMLInputElement | null;
+    const typeInput=document.getElementById('deviceDocumentType') as HTMLSelectElement | null;
+    const expiryInput=document.getElementById('deviceDocumentExpiry') as HTMLInputElement | null;
+    const file=fileInput?.files?.[0];
+    const name=String(nameInput?.value || '').trim();
+    if (!file || !name) { deviceDocumentFeedback('danger','Missing document data','Select a file and enter a document name.'); return; }
+    const payload=new FormData();
+    payload.append('file', file);
+    payload.append('name', name);
+    payload.append('type', typeInput?.value || 'Other');
+    if (expiryInput?.value) payload.append('expiry', new Date(expiryInput.value).toISOString());
+    deviceDocumentFeedback('info','Uploading document','Sending multipart/form-data to DeviceRegistry…');
+    const result=await window.FleetAPIMutations.devices.uploadDocument(d.id, payload);
+    if (!result.ok) { deviceDocumentFeedback('danger','Document upload failed',result.message); return; }
+    const response=(result.data || {}) as ZentridDeviceDocument;
+    const documents=deviceDocuments(d).filter(item => item.id !== response.id);
+    if (response.id) documents.unshift(response);
+    writeDeviceDocumentCache(d.id, documents);
+    d.documents=documents;
+    const content=document.getElementById('deviceDetailContent');
+    if (content) content.innerHTML=deviceDocumentsPanelV92(d);
+    wireDeviceDocuments(d);
+    deviceDocumentFeedback('success','Document uploaded',`${response.name || name} is available for download.`);
+  });
+  document.querySelectorAll<HTMLElement>('[data-download-device-document]').forEach(button => button.addEventListener('click', async () => {
+    const id=button.dataset.downloadDeviceDocument || '';
+    const document=deviceDocuments(d).find(item => item.id===id);
+    if (!document) return;
+    button.setAttribute('disabled','true');
+    try { await downloadDeviceDocument(d.id, document); }
+    catch (error) { deviceDocumentFeedback('danger','Download failed',error instanceof Error ? error.message : String(error)); }
+    finally { button.removeAttribute('disabled'); }
+  }));
+  document.querySelectorAll<HTMLElement>('[data-delete-device-document]').forEach(button => button.addEventListener('click', async () => {
+    const id=button.dataset.deleteDeviceDocument || '';
+    if (!id || !window.FleetActionPermissions?.guard({ action:'document' as any, resource:'device', record:d, status:d.lifecycle })) return;
+    if (!window.confirm('Delete this device document from the backend?')) return;
+    button.setAttribute('disabled','true');
+    const result=await window.FleetAPIMutations.devices.deleteDocument(d.id, id);
+    if (!result.ok) { button.removeAttribute('disabled'); deviceDocumentFeedback('danger','Delete failed',result.message); return; }
+    const documents=deviceDocuments(d).filter(item => item.id!==id);
+    writeDeviceDocumentCache(d.id, documents);
+    d.documents=documents;
+    const content=document.getElementById('deviceDetailContent');
+    if (content) content.innerHTML=deviceDocumentsPanelV92(d);
+    wireDeviceDocuments(d);
+    deviceDocumentFeedback('success','Document deleted','The device document was deleted successfully.');
+  }));
+}
+async function runDeviceLifecycleAction(d: ZentridDeviceRecord, action: 'activate' | 'deactivate' | 'archive'): Promise<void> {
+  if (!d.id || !window.FleetActionPermissions?.guard({ action, resource:'device', record:d, status:d.lifecycle })) return;
+  const label=action === 'activate' ? 'Activate' : action === 'deactivate' ? 'Deactivate' : 'Archive';
+  if (action === 'archive' && !window.confirm(`Archive ${deviceValue(d.name)}? The record remains available as Archived.`)) return;
+  const button=document.querySelector<HTMLElement>(`[data-device-lifecycle-action="${action}"]`);
+  button?.setAttribute('disabled','true');
+  const result=await window.FleetAPIMutations.devices[action](d.id);
+  FleetLayout.toast(result.message);
+  if (result.ok) {
+    window.ZentridAPIRepositories?.cache.invalidate('devices');
+    window.setTimeout(()=>window.location.reload(), 250);
+    return;
+  }
+  button?.removeAttribute('disabled');
+}
+
 function wireDeviceDetail(): void {
   const d=selectedDevice();
   if (!d) return;
   document.getElementById('refreshDeviceV59')?.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('zentrid:data-refresh-request',{ detail:{ resource:'device-detail', forceRefresh:true } })));
+  document.querySelectorAll<HTMLElement>('[data-device-lifecycle-action]').forEach(button=>button.addEventListener('click',()=>{
+    const action=button.dataset.deviceLifecycleAction;
+    if (action === 'activate' || action === 'deactivate' || action === 'archive') void runDeviceLifecycleAction(d, action);
+  }));
+  window.FleetActionPermissions?.refresh(document);
+  if (deviceDetailActiveTab === 'documents') wireDeviceDocuments(d);
   window.FleetDetailLazyTabs?.observe('device', 'device-detail-content', () => {
     const current = selectedDevice();
     const content=document.getElementById('deviceDetailContent');
-    if(content && current) content.innerHTML=deviceDetailPanel(current, deviceDetailActiveTab);
+    if(content && current) {
+      content.innerHTML=deviceDetailPanel(current, deviceDetailActiveTab);
+      if (deviceDetailActiveTab === 'documents') wireDeviceDocuments(current);
+      window.FleetActionPermissions?.refresh(content);
+    }
   });
   document.querySelectorAll<HTMLElement>('[data-device-tab]').forEach(btn=>btn.addEventListener('click',()=>{
     deviceDetailActiveTab = btn.dataset.deviceTab || 'overview';
@@ -462,6 +705,10 @@ function wireDeviceDetail(): void {
     window.FleetDetailLazyTabs?.activate('device', String(deviceDetailActiveTab));
     const current = selectedDevice();
     const content=document.getElementById('deviceDetailContent');
-    if(content && current) content.innerHTML=deviceDetailPanel(current, deviceDetailActiveTab);
+    if(content && current) {
+      content.innerHTML=deviceDetailPanel(current, deviceDetailActiveTab);
+      if (deviceDetailActiveTab === 'documents') wireDeviceDocuments(current);
+      window.FleetActionPermissions?.refresh(content);
+    }
   }));
 }

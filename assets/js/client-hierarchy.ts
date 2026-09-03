@@ -135,13 +135,19 @@ interface FleetDeviceCatalogItem {
 }
 
 interface FleetClientDocumentRecord {
+  id?: string;
   name: string;
   type: string;
   status: string;
   expiry?: string;
+  fileName?: string;
+  filePath?: string;
+  uploaded?: boolean;
+  localFile?: File;
 }
 
 interface FleetBankAccount {
+  id?: string;
   bankName: string;
   bankCode: string;
   accountNumber: string;
@@ -515,7 +521,7 @@ function clientCreateModal() {
         <div><p class="eyebrow">Client Registry · Create Client</p><h2 id="clientCreateTitle">Add New Client</h2><p class="muted">Create a canonical client profile inside the current tenant workspace and configure its portal access.</p></div>
         <span class="badge warning">Draft</span>
       </div>
-      <form id="clientCreateForm" class="client-create-form setup-layout" novalidate data-fleet-form-readiness="api" data-fleet-form-contract="ClientCreateDraft" data-fleet-form-endpoint="/api/admin/clients" data-fleet-form-method="POST" data-fleet-form-api-note="Create Client is connected to the confirmed backend mutation. Document files remain local metadata until a document upload API is available.">
+      <form id="clientCreateForm" class="client-create-form setup-layout" novalidate data-fleet-form-readiness="api" data-fleet-form-contract="ClientCreateDraft" data-fleet-form-endpoint="/api/admin/clients" data-fleet-form-method="POST" data-fleet-form-api-note="Create Client writes the canonical client record first, then uploads selected document files through the Client Documents API.">
         <aside class="setup-rail client-create-rail" aria-label="Create client steps">
           <button class="active" type="button" data-client-create-step="tenant"><b>1</b><span>Client Profile</span></button>
           <button type="button" data-client-create-step="identity"><b>2</b><span>Identity</span></button>
@@ -574,7 +580,7 @@ function clientCreateModal() {
             </div>
           </section>
           <section class="form-section-card client-create-step-panel" data-client-create-panel="portal">
-            <div class="section-title"><div><h3>Contacts & Portal Account</h3><p class="muted">Client contact details and initial local prototype portal credentials.</p></div></div>
+            <div class="section-title"><div><h3>Contacts & Portal Account</h3><p class="muted">Client contact details and initial portal credentials sent through the Client API.</p></div></div>
             <div class="client-form-grid three-col">
               <label>Phone Number 1 *<input name="phone1" type="tel" required maxlength="40" autocomplete="tel" placeholder="+374..." /></label>
               <label>Phone Number 2<input name="phone2" type="tel" maxlength="40" placeholder="Optional" /></label>
@@ -585,14 +591,18 @@ function clientCreateModal() {
             </div>
           </section>
           <section class="form-section-card client-create-step-panel" data-client-create-panel="documentation">
-            <div class="section-title"><div><h3>Documentation</h3><p class="muted">Add the identity or registration reference required for the selected client type. Files remain local prototype metadata until a document API exists.</p></div></div>
+            <div class="section-title"><div><h3>Documentation</h3><p class="muted">Add identity numbers and documents. Selected files are uploaded after the backend client record is created.</p></div></div>
             <div class="client-form-grid two-col">
               <label>Client Passport Number<input name="passportNumber" maxlength="80" placeholder="Passport / personal document number" /></label>
               <label>State Registration Document Number<input name="stateRegistrationNumber" maxlength="80" placeholder="State registration document number" /></label>
-              <label>Client Passport<input name="clientPassport" type="file" accept=".pdf,.jpg,.jpeg,.png" data-doc-label="Client Passport" /></label>
-              <label>State Registration Document<input name="stateRegistrationDocument" type="file" accept=".pdf,.jpg,.jpeg,.png" data-doc-label="State Registration Document" /></label>
-              <label class="wide-field">Project Doc<input name="projectDoc" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-doc-label="Project Doc" /></label>
+              <label>Client Passport<input name="clientPassport" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-doc-label="Client Passport" data-doc-type="Identity" data-doc-expiry="clientPassportExpiry" /></label>
+              <label>Passport Expiry<input name="clientPassportExpiry" type="date" /></label>
+              <label>State Registration Document<input name="stateRegistrationDocument" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-doc-label="State Registration Document" data-doc-type="Legal" data-doc-expiry="stateRegistrationDocumentExpiry" /></label>
+              <label>Registration Document Expiry<input name="stateRegistrationDocumentExpiry" type="date" /></label>
+              <label>Project Doc<input name="projectDoc" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-doc-label="Project Doc" data-doc-type="Commercial" data-doc-expiry="projectDocExpiry" /></label>
+              <label>Project Doc Expiry<input name="projectDocExpiry" type="date" /></label>
             </div>
+            <p class="field-help">Allowed document formats: PDF, DOC, DOCX, JPG, JPEG, PNG.</p>
             <div class="client-uploaded-docs" id="clientUploadedDocs"><div class="empty-state mini">No documents added yet.</div></div>
           </section>
           <section class="form-section-card client-create-step-panel" data-client-create-panel="banking">
@@ -611,7 +621,7 @@ function clientCreateModal() {
             </div>
           </section>
           <section class="form-section-card client-create-step-panel" data-client-create-panel="review">
-            <div class="section-title"><div><h3>Review</h3><p class="muted">Check client identity, fixed tenant scope, portal access, documents and banking data before saving the local client profile.</p></div></div>
+            <div class="section-title"><div><h3>Review</h3><p class="muted">Check client identity, fixed tenant scope, portal access, documents and banking data before creating the backend client profile.</p></div></div>
             <div class="info-grid client-create-review">
               <div><span>Tenant Scope</span><strong data-review-field="tenant">${clientDetailEscape(tenantName)}</strong><small>Fixed by the signed-in Tenant Admin account</small></div>
               <div><span>Client Type</span><strong data-review-field="type">Individual</strong><small>Identity flow selected in step 1</small></div>
@@ -908,6 +918,10 @@ function clientCreateCustomIssues(index: number, includeDuplicates = false): Fle
     const registrationDocumentNumber = clientCreateControl<HTMLInputElement>('stateRegistrationNumber');
     const passportFile = clientCreateControl<HTMLInputElement>('clientPassport');
     const registrationFile = clientCreateControl<HTMLInputElement>('stateRegistrationDocument');
+    form.querySelectorAll<HTMLInputElement>('input[type="file"][data-doc-label]').forEach(input => {
+      const file = input.files?.[0];
+      if (file && !clientDocumentFileAllowed(file)) issues.push({ control:input, message:`${file.name} is not supported. Allowed document formats: PDF, DOC, DOCX, JPG, JPEG, PNG.` });
+    });
     if (type === 'Individual' && !passportNumber?.value.trim() && !passportFile?.files?.length) issues.push({ control:passportNumber, message:'Enter a passport / personal document number or upload the client passport.' });
     if (type === 'Legal Entity' && !registrationDocumentNumber?.value.trim() && !registrationFile?.files?.length) issues.push({ control:registrationDocumentNumber, message:'Enter a state registration document number or upload the registration document.' });
   }
@@ -1092,6 +1106,19 @@ function clientCreateBackendId(value: unknown): string {
   return '';
 }
 
+function clientCreateTenantId(): string {
+  const runtime = (window as unknown as { FleetAPI?: { auth?: { getSession?: () => { user?: Record<string, unknown> | null; claims?: Record<string, unknown> } } } }).FleetAPI;
+  const session = runtime?.auth?.getSession?.();
+  const sources = [session?.user, session?.claims].filter((value): value is Record<string, unknown> => Boolean(value && typeof value === 'object'));
+  for (const source of sources) {
+    for (const key of ['tenantId','tenant_id','managingTenantId','organizationId','organization_id']) {
+      const value = String(source[key] || '').trim();
+      if (value) return value;
+    }
+  }
+  return '';
+}
+
 function clientCreateApiPayload(
   fd: FormData,
   type: string,
@@ -1100,52 +1127,100 @@ function clientCreateApiPayload(
   bankAccounts: FleetBankAccount[],
   form: ClientForm
 ): Record<string, unknown> {
-  const managingTenant = formValue(fd.get('tenant')).trim() || FleetLayout.state.tenant;
-  const accountActivation = formValue(fd.get('status')).trim() || 'Pending';
-  const primaryContact = type === 'Individual' ? fullName : contactPerson;
-  const payload: Record<string, unknown> = {
-    clientName: fullName,
-    name: fullName,
-    managingTenant,
-    tenant: managingTenant,
-    clientType: type,
-    accountActivation,
-    country: formValue(fd.get('country')).trim(),
-    region: formValue(fd.get('region')).trim(),
-    city: formValue(fd.get('city')).trim(),
-    address: formValue(fd.get('address')).trim(),
-    primaryContact,
-    email: formValue(fd.get('email')).trim(),
-    phoneNumber1: formValue(fd.get('phone1')).trim(),
-    username: formValue(fd.get('username')).trim(),
-    password: formValue(fd.get('password')),
-    role: formValue(fd.get('portalRole')) || formValue(fd.get('userRole')) || formValue(fd.get('userRoleLegal')) || 'End User',
-    language: formValue(fd.get('language')) || formValue(fd.get('languageLegal')) || 'English',
-    timezone: formValue(fd.get('timezone')) || 'Asia/Yerevan',
-    temperatureUnit: formValue(fd.get('temperature')) || '°C',
-    currency: formValue(fd.get('currency')) || 'AMD',
-    irradiationUnit: formValue(fd.get('irradiation')) || 'kWh/m2',
-    hasClientPassportFile: Boolean((form.elements.namedItem('clientPassport') as HTMLInputElement | null)?.files?.length),
-    hasStateRegistrationDocumentFile: Boolean((form.elements.namedItem('stateRegistrationDocument') as HTMLInputElement | null)?.files?.length),
-    hasProjectDocFile: Boolean((form.elements.namedItem('projectDoc') as HTMLInputElement | null)?.files?.length)
-  };
-  const optional = (key: string, value: unknown): void => {
-    if (value === undefined || value === null) return;
-    if (typeof value === 'string' && !value.trim()) return;
-    if (Array.isArray(value) && !value.length) return;
-    payload[key] = value;
-  };
-  optional('legalForm', type === 'Individual' ? 'Private Person' : formValue(fd.get('legalForm')).trim());
-  optional('registrationNo', type === 'Individual' ? formValue(fd.get('passportNumber')).trim() : formValue(fd.get('registrationNo')).trim());
-  optional('stateRegistrationNumber', formValue(fd.get('stateRegistrationNumber')).trim());
-  optional('taxId', type === 'Individual' ? '' : formValue(fd.get('taxId')).trim());
-  optional('phoneNumber2', formValue(fd.get('phone2')).trim());
+  const managingTenantId = clientCreateTenantId();
+  const status = formValue(fd.get('status')).trim() || 'Pending';
+  const firstName = type === 'Individual' ? formValue(fd.get('name')).trim() : null;
+  const lastName = type === 'Individual' ? formValue(fd.get('surname')).trim() : null;
+  const middleName = type === 'Individual' ? formValue(fd.get('lastName')).trim() || null : null;
+  const companyName = type === 'Legal Entity' ? formValue(fd.get('companyName')).trim() : null;
   const dob = formValue(fd.get('dob')).trim();
   const dobMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dob);
-  if (dobMatch) optional('dateOfBirth', `${dobMatch[3]}-${dobMatch[2]}-${dobMatch[1]}`);
-  optional('bankAccounts', bankAccounts);
-  return payload;
+  const dateOfBirth = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? dob : (dobMatch ? `${dobMatch[3]}-${dobMatch[2]}-${dobMatch[1]}` : null);
+  const language = formValue(fd.get('language')) || formValue(fd.get('languageLegal')) || 'English';
+  const identityRole = type === 'Individual' ? (formValue(fd.get('userRole')) || 'End User') : (formValue(fd.get('userRoleLegal')) || 'Owner Viewer');
+  const portalRole = formValue(fd.get('portalRole')) || 'End User';
+  const username = formValue(fd.get('username')).trim();
+  const password = formValue(fd.get('password'));
+  const primaryFullName = type === 'Individual' ? fullName : contactPerson;
+  const passportNumber = String(form.querySelector<HTMLInputElement>('[name="passportNumber"]')?.value || '').trim();
+  const legalRegistrationNumber = String(form.querySelector<HTMLInputElement>('[name="registrationNo"]')?.value || '').trim();
+  const legalTaxId = String(form.querySelector<HTMLInputElement>('[name="taxId"]')?.value || '').trim();
+  return {
+    clientName: fullName,
+    tenantLink: {
+      managingTenantId: managingTenantId || null,
+      clientType: type,
+      status
+    },
+    identity: {
+      firstName,
+      lastName,
+      middleName,
+      dateOfBirth,
+      companyName,
+      legalForm: type === 'Legal Entity' ? formValue(fd.get('legalForm')).trim() || null : null,
+      registrationNumber: type === 'Legal Entity' ? legalRegistrationNumber || null : passportNumber || null,
+      taxIdVatNumber: type === 'Legal Entity' ? legalTaxId || null : null,
+      role: identityRole,
+      preferredLanguage: language
+    },
+    address: {
+      country: formValue(fd.get('country')).trim(),
+      stateRegion: formValue(fd.get('region')).trim(),
+      city: formValue(fd.get('city')).trim(),
+      streetAddress: formValue(fd.get('address')).trim()
+    },
+    preferences: {
+      timeZone: formValue(fd.get('timezone')) || 'Asia/Yerevan',
+      temperatureUnit: formValue(fd.get('temperature')) || '°C',
+      currency: formValue(fd.get('currency')) || 'AMD',
+      irradiationUnit: formValue(fd.get('irradiation')) || 'kWh/m2',
+      language
+    },
+    primaryContact: {
+      phoneNumber1: formValue(fd.get('phone1')).trim(),
+      phoneNumber2: formValue(fd.get('phone2')).trim() || null,
+      email: formValue(fd.get('email')).trim().toLocaleLowerCase(),
+      fullName: primaryFullName || null
+    },
+    portalAccount: {
+      username,
+      role: portalRole,
+      temporaryPassword: password
+    },
+    documentation: {
+      identityDocument: null,
+      registrationDocument: null
+    },
+    bankAccounts: bankAccounts.map(account => ({
+      bankName: String(account.bankName || account.bank || '').trim(),
+      bankCode: String(account.bankCode || '').trim(),
+      accountNumber: String(account.accountNumber || account.account || '').trim(),
+      accountCurrency: String(account.accountCurrency || account.currency || '').trim(),
+      primary: Boolean(account.primary)
+    }))
+  };
 }
+
+type ClientCreateUploadCandidate = { file:File; name:string; type:string; expiry:string };
+function clientDocumentFileAllowed(file: File | undefined | null): boolean {
+  if (!file) return false;
+  const extension = file.name.split('.').pop()?.toLocaleLowerCase() || '';
+  return ['pdf','doc','docx','jpg','jpeg','png'].includes(extension);
+}
+function clientCreateUploadCandidates(form: ClientForm): ClientCreateUploadCandidate[] {
+  return Array.from(form.querySelectorAll<HTMLInputElement>('input[type="file"][data-doc-label]')).map(input => {
+    const file = input.files?.[0];
+    if (!clientDocumentFileAllowed(file)) return null;
+    const safeFile = file!;
+    const name = String(input.dataset.docLabel || safeFile.name || 'Client Document').trim();
+    const type = String(input.dataset.docType || 'Other').trim();
+    const expiryName = String(input.dataset.docExpiry || '').trim();
+    const expiryControl = expiryName ? form.elements.namedItem(expiryName) as HTMLInputElement | null : null;
+    return { file:safeFile, name, type, expiry:String(expiryControl?.value || '').trim() };
+  }).filter((item):item is ClientCreateUploadCandidate=>Boolean(item));
+}
+async function uploadClientCreateDocuments(clientId:string,form:ClientForm):Promise<{uploaded:number;failures:string[]}>{const candidates=clientCreateUploadCandidates(form);if(!candidates.length)return{uploaded:0,failures:[]};let uploaded=0;const failures:string[]=[];for(const candidate of candidates){const result=await window.FleetAPIMutations.clients.uploadDocument(clientId,clientDocumentMultipart(candidate));if(result.ok)uploaded+=1;else failures.push(`${candidate.name}: ${result.error?.message||result.message||'upload failed'}`);}return{uploaded,failures};}
 
 async function submitClientCreateForm(e: Event): Promise<void> {
   e.preventDefault();
@@ -1184,6 +1259,11 @@ async function submitClientCreateForm(e: Event): Promise<void> {
       return;
     }
     const backendId = clientCreateBackendId(result.data);
+    if (backendId) {
+      const uploads=await uploadClientCreateDocuments(backendId,form);
+      if (uploads.failures.length) FleetLayout.toast(`Client created, but ${uploads.failures.length} document upload(s) failed.`);
+      else if (uploads.uploaded) FleetLayout.toast(`Client created with ${uploads.uploaded} document${uploads.uploaded===1?'':'s'}.`);
+    }
     clientCreateInitialSnapshot = clientCreateDraftSnapshot();
     window.FleetFormReadiness?.markCommitted(form);
     closeClientCreateModal(true);
@@ -1233,7 +1313,7 @@ function clientDetailBackendManaged(record: FleetClientRecord): boolean { return
 function clientDetailIsArchived(record: FleetClientRecord): boolean { return FleetEntityDetailUX.archived(record.status); }
 function clientDetailEditableTab(tab: ClientDetailTabKey = clientDetailActiveTab): boolean { return ['overview','identity','location','portal','users','commercial'].includes(tab); }
 function clientDetailCanEdit(record: FleetClientRecord, tab: ClientDetailTabKey = clientDetailActiveTab): boolean {
-  return !clientDetailBackendManaged(record) && !clientDetailIsArchived(record) && clientDetailEditableTab(tab);
+  return clientDetailBackendManaged(record) && !clientDetailIsArchived(record) && ['overview','identity','location','portal','commercial'].includes(tab);
 }
 function clientDetailFreshness(record: FleetClientRecord): string {
   return FleetEntityDetailUX.freshness(record, 'client', {
@@ -1243,13 +1323,12 @@ function clientDetailFreshness(record: FleetClientRecord): string {
 function clientDetailModeCopy(record: FleetClientRecord): { title: string; message: string; tone: ClientDetailFeedbackTone } {
   return FleetEntityDetailUX.modeCopy(record, 'client', {
     status:record.status,
-    backendTitle:'Live client record',
-    backendMessage:'This section is read-only because the current backend contract does not expose a client update endpoint.',
+    backendTitle:'Live client · backend update available',
+    backendMessage:'Supported client fields are saved through PUT /api/admin/clients/{id}. Lifecycle changes use dedicated backend actions.',
     archivedTitle:'Archived client is read-only',
     archivedMessage:'Archived identity, portal and commercial data cannot be changed from this workspace.'
   });
 }
-
 function renderClientDetailControl(record: FleetClientRecord): string {
   const copy = clientDetailModeCopy(record);
   return `<section class="client-detail-control-v118 ${copy.tone}" id="clientDetailControl" data-client-detail-origin="${clientDetailOrigin(record)}" role="status" aria-live="polite" aria-busy="false">
@@ -1265,20 +1344,28 @@ function clearClientDetailFeedback(): void {
   FleetEntityDetailUX.clearFeedback('clientDetailFeedback', 'client-detail-feedback-v118');
 }
 function clientDetailDocumentsData(client: FleetClientRecord): FleetClientDocumentRecord[] {
+  if (Array.isArray(client.documentRecords)) return client.documentRecords.map(item => ({ ...item }));
   const raw = client.raw && typeof client.raw === 'object' ? client.raw as Record<string, unknown> : {};
-  const candidates = [client.documentRecords, raw.documentRecords, raw.clientDocuments, raw.documents].find(Array.isArray) as unknown[] | undefined;
+  const candidates = [raw.documentRecords, raw.clientDocuments, raw.documents].find(Array.isArray) as unknown[] | undefined;
   if (!candidates) return [];
   return candidates.map(item => {
     const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
-    return {
+    const document: FleetClientDocumentRecord = {
       name:String(row.name || row.fileName || row.documentName || row.title || ''),
       type:String(row.type || row.documentType || row.category || 'Not provided'),
       status:String(row.status || row.documentStatus || 'Not provided'),
-      expiry:String(row.expiry || row.expiryDate || row.validUntil || '')
+      expiry:String(row.expiry || row.expiryDate || row.validUntil || ''),
+      uploaded:true
     };
+    const id=String(row.id || row.documentId || '').trim();
+    const fileName=String(row.fileName || row.filename || row.name || '').trim();
+    const filePath=String(row.filePath || row.path || '').trim();
+    if(id) document.id=id;
+    if(fileName) document.fileName=fileName;
+    if(filePath) document.filePath=filePath;
+    return document;
   }).filter(item => Boolean(item.name));
 }
-
 function clientDetailPortalUsersData(client: FleetClientRecord, _plants: FleetPlantRecord[]): FleetPortalUser[] {
   return clientPortalUsers(client, []);
 }
@@ -1306,20 +1393,33 @@ function clientDetailSectionContext(record: FleetClientRecord, tab: ClientDetail
   const help = editable ? 'Review the highlighted fields before saving.' : clientDetailEditableTab(tab) ? 'Values are loaded from the backend client record.' : 'This section is derived from linked API data.';
   return `<div class="client-section-context-v118"><div><span>${clientDetailEscape(mode)}</span><strong>${clientDetailEscape(clientDetailSectionTitle(tab))}</strong><small>${clientDetailEscape(help)}</small></div></div>`;
 }
+function clientDetailEditableValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const text = String(value).trim();
+  if (!text || text === '—' || text.toLowerCase() === 'not provided' || text.toLowerCase() === 'not configured') return '';
+  return text;
+}
 function clientDetailInput(key: keyof FleetClientRecord, label: string, value: unknown, options?: string[], type = 'text', required = false): string {
   const req = required ? ' required' : '';
-  const safeValue = clientDetailAttr(value ?? '');
-  if (options) return `<label>${clientDetailEscape(label)}${required ? ' *' : ''}<select data-client-edit-key="${String(key)}" name="client-edit-${String(key)}"${req}>${options.map(option => `<option value="${clientDetailAttr(option)}" ${String(value ?? '') === option ? 'selected' : ''}>${clientDetailEscape(option)}</option>`).join('')}</select></label>`;
+  const editableValue = clientDetailEditableValue(value);
+  const safeValue = clientDetailAttr(editableValue);
+  if (options) {
+    const normalizedOptions = [...options];
+    if (editableValue && !normalizedOptions.includes(editableValue)) normalizedOptions.push(editableValue);
+    if ((!required || !editableValue) && !normalizedOptions.includes('')) normalizedOptions.unshift('');
+    return `<label>${clientDetailEscape(label)}${required ? ' *' : ''}<select data-client-edit-key="${String(key)}" name="client-edit-${String(key)}"${req}>${normalizedOptions.map(option => `<option value="${clientDetailAttr(option)}" ${editableValue === option ? 'selected' : ''}>${clientDetailEscape(option || 'Not set')}</option>`).join('')}</select></label>`;
+  }
   const textarea = ['address','accessScope','exportPolicy','billing','onboarding'].includes(String(key));
-  if (textarea) return `<label>${clientDetailEscape(label)}${required ? ' *' : ''}<textarea data-client-edit-key="${String(key)}" name="client-edit-${String(key)}"${req}>${clientDetailEscape(value ?? '')}</textarea></label>`;
+  if (textarea) return `<label>${clientDetailEscape(label)}${required ? ' *' : ''}<textarea data-client-edit-key="${String(key)}" name="client-edit-${String(key)}"${req}>${clientDetailEscape(editableValue)}</textarea></label>`;
   return `<label>${clientDetailEscape(label)}${required ? ' *' : ''}<input type="${type}" data-client-edit-key="${String(key)}" name="client-edit-${String(key)}" value="${safeValue}"${req}></label>`;
 }
 function clientDetailDocumentsEditor(client: FleetClientRecord): string {
   const rows = client.documentRecords || [];
-  return `<div class="section-title-v17 mini"><div><h3>Client Documents</h3><p class="muted">Local metadata only. Files are not uploaded because a document API is not available.</p></div><button class="small-btn" type="button" data-add-client-document>+ Add Document</button></div>
+  const allowedTypes = ['Identity','Legal','Commercial','Finance','Compliance','Access','Assignment'];
+  return `<div class="tenant-detail-table-head-v117"><div><h3>Client Documents</h3><p class="muted">Upload through POST /api/admin/clients/{id}/documents. Allowed files: PDF, DOC, DOCX, JPG, JPEG, PNG.</p></div><button class="small-btn primary" type="button" data-add-client-document>Add Document</button></div>
     <div class="data-table compact-table client-document-editor-v118">
-      <div class="data-head"><span>Document</span><span>Type</span><span>Status</span><span>Expiry</span><span>Actions</span></div>
-      ${rows.length ? rows.map((doc,index) => `<div class="data-row" data-client-document-row="${index}"><label><span class="sr-only">Document name</span><input value="${clientDetailAttr(doc.name)}" data-client-document-field="name" required></label><label><span class="sr-only">Document type</span><select data-client-document-field="type"><option ${doc.type==='Identity'?'selected':''}>Identity</option><option ${doc.type==='Legal'?'selected':''}>Legal</option><option ${doc.type==='Commercial'?'selected':''}>Commercial</option><option ${doc.type==='Finance'?'selected':''}>Finance</option><option ${doc.type==='Compliance'?'selected':''}>Compliance</option><option ${doc.type==='Access'?'selected':''}>Access</option><option ${doc.type==='Assignment'?'selected':''}>Assignment</option></select></label><label><span class="sr-only">Document status</span><select data-client-document-field="status"><option ${doc.status==='Draft'?'selected':''}>Draft</option><option ${doc.status==='Pending'?'selected':''}>Pending</option><option ${doc.status==='Verified'?'selected':''}>Verified</option><option ${doc.status==='Active'?'selected':''}>Active</option><option ${doc.status==='Signed'?'selected':''}>Signed</option><option ${doc.status==='Expired'?'selected':''}>Expired</option><option ${doc.status==='Waiting'?'selected':''}>Waiting</option><option ${doc.status==='Updated'?'selected':''}>Updated</option></select></label><label><span class="sr-only">Expiry</span><input type="date" value="${clientDetailAttr(doc.expiry || '')}" data-client-document-field="expiry"></label><div class="row-actions single-action"><button class="danger-action" type="button" data-remove-client-document="${index}">Remove</button></div></div>`).join('') : `<div class="empty-state"><strong>No document metadata</strong><small>Add a document record when client-level documentation is required.</small></div>`}
+      <div class="data-head"><span>Document</span><span>Type</span><span>Status</span><span>Expiry</span><span>File</span><span>Actions</span></div>
+      ${rows.length ? rows.map((doc,index) => { const isNew = !doc.id && !doc.filePath; return `<div class="data-row" data-client-document-row="${index}"><label><span class="sr-only">Document name</span><input value="${clientDetailAttr(doc.name)}" data-client-document-field="name" ${isNew ? '' : 'readonly'} required></label><label><span class="sr-only">Document type</span><select data-client-document-field="type" ${isNew ? '' : 'disabled'}>${allowedTypes.map(type => `<option ${doc.type===type?'selected':''}>${type}</option>`).join('')}</select></label><label><span class="sr-only">Document status</span><input value="${clientDetailAttr(doc.status || (isNew ? 'Pending' : ''))}" readonly></label><label><span class="sr-only">Expiry</span><input type="date" value="${clientDetailAttr(doc.expiry || '')}" data-client-document-field="expiry" ${isNew ? '' : 'readonly'}></label><div class="tenant-document-file-field">${isNew ? `<label class="tenant-document-file-picker"><span class="small-btn">Choose File</span><input class="tenant-document-file-input-v117" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-client-document-file="${index}"></label><small data-client-document-file-name="${index}">${clientDetailEscape(doc.fileName || 'No file selected')}</small>` : `<strong>${clientDetailEscape(doc.fileName || doc.name || 'Uploaded')}</strong>`}</div><div class="row-actions">${isNew ? `<button class="danger-action" type="button" data-remove-client-document="${index}">Remove</button>` : `<button type="button" data-client-document-download="${clientDetailAttr(String(doc.id || doc.filePath || ''))}">Download</button><button class="danger-action" type="button" data-delete-client-document="${clientDetailAttr(String(doc.id || doc.filePath || ''))}">Delete</button>`}</div></div>`; }).join('') : `<div class="empty-state"><strong>No client documents</strong><small>Click Add Document to attach the first backend document.</small></div>`}
     </div>`;
 }
 function clientDetailUsersEditor(client: FleetClientRecord): string {
@@ -1335,11 +1435,11 @@ function clientDetailBankEditor(client: FleetClientRecord): string {
     ${accounts.length ? accounts.map((account,index) => `<div class="data-row" data-client-bank-row="${index}"><input aria-label="Bank name" value="${clientDetailAttr(account.bankName)}" data-client-bank-field="bankName" required><input aria-label="Bank code" value="${clientDetailAttr(account.bankCode)}" data-client-bank-field="bankCode"><input aria-label="Account number" value="${clientDetailAttr(account.accountNumber)}" data-client-bank-field="accountNumber" required><select aria-label="Account currency" data-client-bank-field="accountCurrency"><option ${account.accountCurrency==='AMD'?'selected':''}>AMD</option><option ${account.accountCurrency==='USD'?'selected':''}>USD</option><option ${account.accountCurrency==='EUR'?'selected':''}>EUR</option></select><label class="inline-check-v118"><input type="radio" name="client-primary-bank" ${account.primary?'checked':''} data-client-bank-primary="${index}"><span>Primary</span></label><div class="row-actions single-action"><button class="danger-action" type="button" data-remove-client-bank="${index}">Remove</button></div></div>`).join('') : `<div class="empty-state"><strong>No bank accounts</strong><small>Banking is optional until a commercial settlement is configured.</small></div>`}</div>`;
 }
 function clientDetailEditTab(client: FleetClientRecord, plants: FleetPlantRecord[], tab: ClientDetailTabKey): string {
-  if (tab === 'identity') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Identity</h2><p class="muted">Canonical client identity fields returned by the backend.</p></div></div><div class="client-edit-grid-v118">${clientDetailInput('type','Client Type',client.type,['Individual','Legal Entity'],'text',true)}${clientDetailInput('name',client.type==='Individual'?'Full Name':'Legal Name',client.name,undefined,'text',true)}${clientDetailInput('legalForm','Legal Form',client.legalForm,undefined,'text',client.type!=='Individual')}${clientDetailInput('dob','Date of Birth',client.dob || '',undefined,'date',false)}${clientDetailInput('registrationNo',client.type==='Individual'?'Passport / Personal ID':'Registration Number',client.registrationNo,undefined,'text',true)}${clientDetailInput('taxId','Tax / Personal ID',client.taxId,undefined,'text',client.type!=='Individual')}${clientDetailInput('verification','Verification',client.verification,['Draft · Pending verification','Identity Pending','KYC Review','Verified','Rejected'],'text',true)}${clientDetailInput('status','Client Status',client.status,['Active','Pending','Review','Suspended','Archived'],'text',true)}${clientDetailInput('assignmentRole','Default Client Role',client.assignmentRole,undefined,'text',true)}${clientDetailInput('account','Account Manager',client.account,undefined,'text',true)}</div>${clientDetailDocumentsEditor(client)}`;
+  if (tab === 'identity') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Identity</h2><p class="muted">Edit canonical client identity fields supported by PUT /api/admin/clients/{id}.</p></div></div><div class="client-edit-grid-v118">${clientDetailInput('type','Client Type',client.type,['Individual','Legal Entity'],'text',true)}${clientDetailInput('name',client.type==='Individual'?'Full Name':'Legal Name',client.name,undefined,'text',true)}${clientDetailInput('legalForm','Legal Form',client.legalForm,undefined,'text',client.type!=='Individual')}${clientDetailInput('dob','Date of Birth',client.dob || '',undefined,'date',false)}${clientDetailInput('registrationNo',client.type==='Individual'?'Passport / Personal ID':'Registration Number',client.registrationNo,undefined,'text',true)}${clientDetailInput('taxId','Tax / Personal ID',client.taxId,undefined,'text',client.type!=='Individual')}${clientDetailInput('identityRole','Identity Role',client.identityRole || client.assignmentRole,undefined,'text',true)}<label>Verification<input type="text" value="${clientDetailAttr(client.verification || '—')}" readonly aria-readonly="true"><small class="field-help">Read-only backend verification result.</small></label><label>Client Status<input type="text" value="${clientDetailAttr(client.status || '—')}" readonly aria-readonly="true"><small class="field-help">Use Lifecycle Actions to change it.</small></label><label>Account Manager<input type="text" value="${clientDetailAttr(client.account || '—')}" readonly aria-readonly="true"><small class="field-help">The current Client update contract does not accept this field.</small></label></div>${clientDetailDocumentsEditor(client)}`;
   if (tab === 'location') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Location & Preferences</h2><p class="muted">Client geography and End User display preferences.</p></div></div><div class="client-edit-grid-v118">${clientDetailInput('country','Country',client.country,['Armenia','United States','Germany','Spain'],'text',true)}${clientDetailInput('region','Region',client.region || '',undefined,'text',true)}${clientDetailInput('city','City',client.city,undefined,'text',true)}${clientDetailInput('address','Address',client.address,undefined,'text',true)}${clientDetailInput('timezone','Time Zone',client.timezone || 'Asia/Yerevan',undefined,'text',true)}${clientDetailInput('language','Language',client.language || 'English',['English','Armenian','German','Spanish'],'text',true)}${clientDetailInput('temperature','Temperature',client.temperature || '°C',['°C','°F'])}${clientDetailInput('currency','Currency',client.currency || 'AMD',['AMD','USD','EUR'])}${clientDetailInput('irradiation','Irradiation',client.irradiation || 'kWh/m2',['kWh/m2','W/m2'])}</div>`;
-  if (tab === 'portal') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Contacts & Portal</h2><p class="muted">Primary contact and client-facing portal defaults.</p></div></div><div class="client-edit-grid-v118">${clientDetailInput('primaryContact','Primary Contact',client.primaryContact,undefined,'text',true)}${clientDetailInput('contactEmail','Email',client.contactEmail,undefined,'email',true)}${clientDetailInput('contactPhone','Phone Number 1',client.contactPhone,undefined,'tel',true)}${clientDetailInput('phone2','Phone Number 2',client.phone2 || '',undefined,'tel')}${clientDetailInput('username','Portal Username',client.username || '',undefined,'text')}${clientDetailInput('assignmentRole','Portal Role',client.assignmentRole,undefined,'text',true)}${clientDetailInput('accessScope','Plant / Data Scope',client.accessScope,undefined,'text',true)}${clientDetailInput('exportPolicy','Export Policy',client.exportPolicy,undefined,'text',true)}${clientDetailInput('onboarding','Onboarding State',client.onboarding,undefined,'text',true)}</div>`;
+  if (tab === 'portal') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Contacts & Portal</h2><p class="muted">Edit the primary contact and portal account fields supported by PUT /api/admin/clients/{id}.</p></div></div><div class="client-edit-grid-v118">${clientDetailInput('primaryContact','Primary Contact',client.primaryContact,undefined,'text',true)}${clientDetailInput('contactEmail','Email',client.contactEmail,undefined,'email',true)}${clientDetailInput('contactPhone','Phone Number 1',client.contactPhone,undefined,'tel',true)}${clientDetailInput('phone2','Phone Number 2',client.phone2 || '',undefined,'tel')}${clientDetailInput('username','Portal Username',client.username || '',undefined,'text')}${clientDetailInput('portalRole','Portal Role',client.portalRole || client.assignmentRole,undefined,'text',true)}<label>Plant / Data Scope<textarea readonly aria-readonly="true">${clientDetailEscape(clientDetailEditableValue(client.accessScope) || '—')}</textarea><small class="field-help">Read-only until the backend exposes a supported access-scope update contract.</small></label><label>Export Policy<textarea readonly aria-readonly="true">${clientDetailEscape(clientDetailEditableValue(client.exportPolicy) || '—')}</textarea><small class="field-help">Read-only backend policy.</small></label><label>Onboarding State<textarea readonly aria-readonly="true">${clientDetailEscape(clientDetailEditableValue(client.onboarding) || '—')}</textarea><small class="field-help">Read-only workflow state.</small></label></div>`;
   if (tab === 'users') return `${clientDetailSectionContext(client, tab, true)}${clientDetailUsersEditor(client)}`;
-  if (tab === 'commercial') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Commercial & Payments</h2><p class="muted">Commercial fields returned by the backend client record.</p></div></div><div class="client-edit-grid-v118">${clientDetailInput('billing','Billing Profile',client.billing,undefined,'text',true)}${clientDetailInput('supportTier','Support Tier',client.supportTier,undefined,'text',true)}</div>${clientDetailBankEditor(client)}`;
+  if (tab === 'commercial') return `${clientDetailSectionContext(client, tab, true)}<div class="section-title-v17"><div><h2>Commercial & Payments</h2><p class="muted">Bank accounts are supported by the current Client update contract. Billing Profile and Support Tier remain read-only.</p></div></div><div class="client-edit-grid-v118"><label>Billing Profile<textarea readonly aria-readonly="true">${clientDetailEscape(clientDetailEditableValue(client.billing) || '—')}</textarea><small class="field-help">The current Client update contract does not accept this field.</small></label><label>Support Tier<input type="text" value="${clientDetailAttr(client.supportTier || '—')}" readonly aria-readonly="true"><small class="field-help">Read-only until a supported commercial update contract is available.</small></label></div>${clientDetailBankEditor(client)}`;
   return `${clientDetailSectionContext(client, tab, false)}${clientTab(client, plants, tab, false, true)}`;
 }
 function clientDetailSyncControlToDraft(control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
@@ -1404,7 +1504,7 @@ function updateClientDetailActions(record: FleetClientRecord): void {
   if (edit) {
     edit.hidden = clientDetailEditMode;
     edit.disabled = clientDetailBusy || !canEdit;
-    edit.title = canEdit ? 'Edit this client section' : clientDetailIsArchived(record) ? 'Archived clients are read-only' : 'Backend update endpoint is unavailable';
+    edit.title = canEdit ? 'Edit this client section' : clientDetailIsArchived(record) ? 'Archived clients are read-only' : 'This section has no writable Client API contract';
   }
   if (cancel) cancel.hidden = !clientDetailEditMode;
   if (save) save.hidden = !clientDetailEditMode;
@@ -1442,20 +1542,108 @@ function setClientDetailEditMode(enabled: boolean, baseRecord: FleetClientRecord
   clearClientDetailFeedback();
   renderClientDetailCurrentTab(baseRecord, plants);
 }
-function saveClientDetailEdits(baseRecord: FleetClientRecord, _plants: FleetPlantRecord[]): void {
-  const copy = clientDetailModeCopy(baseRecord);
-  setClientDetailFeedback('warning', copy.title, copy.message);
-  clientDetailEditMode = false;
-  clientDetailDraft = null;
-  clientDetailEditSnapshot = '';
-  updateClientDetailActions(baseRecord);
+function clientApiNullableScalar(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') return null;
+  const text = String(value).trim();
+  if (!text || text === '—' || text.toLowerCase() === 'not provided' || text.toLowerCase() === 'not configured') return null;
+  return text;
 }
-
+function clientApiDateOnly(value: unknown): string | null {
+  const text = clientApiNullableScalar(value);
+  if (!text) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const display = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+  return display ? `${display[3]}-${display[2]}-${display[1]}` : null;
+}
+function clientApiDocumentReference(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+function clientDetailApiPayload(record: FleetClientRecord): Record<string, unknown> {
+  const raw = record.raw && typeof record.raw === 'object' ? record.raw as Record<string, unknown> : {};
+  const rawTenantLink = raw.tenantLink && typeof raw.tenantLink === 'object' && !Array.isArray(raw.tenantLink) ? raw.tenantLink as Record<string, unknown> : {};
+  const rawIdentity = raw.identity && typeof raw.identity === 'object' && !Array.isArray(raw.identity) ? raw.identity as Record<string, unknown> : {};
+  const rawPortal = raw.portalAccount && typeof raw.portalAccount === 'object' && !Array.isArray(raw.portalAccount) ? raw.portalAccount as Record<string, unknown> : {};
+  const rawAddress = raw.address && typeof raw.address === 'object' && !Array.isArray(raw.address) ? raw.address as Record<string, unknown> : {};
+  const rawPreferences = raw.preferences && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences) ? raw.preferences as Record<string, unknown> : {};
+  const rawPrimary = raw.primaryContact && typeof raw.primaryContact === 'object' && !Array.isArray(raw.primaryContact) ? raw.primaryContact as Record<string, unknown> : {};
+  const rawDocumentation = raw.documentation && typeof raw.documentation === 'object' && !Array.isArray(raw.documentation) ? raw.documentation as Record<string, unknown> : {};
+  const managingTenantId = String(rawTenantLink.managingTenantId || raw.managingTenantId || raw.tenantId || '').trim();
+  const nameParts = String(record.name || '').trim().split(/\s+/).filter(Boolean);
+  const isIndividual = String(record.type || rawTenantLink.clientType || '').toLowerCase().includes('individual');
+  const currentPortalUsername = String(record.username || record.portalUsername || '').trim();
+  const originalPortalUsername = String(rawPortal.username || '').trim();
+  const portalAccountPayload: Record<string, unknown> = { role: clientApiNullableScalar(record.portalRole) || clientApiNullableScalar(record.assignmentRole) || clientApiNullableScalar(rawPortal.role) };
+  if (currentPortalUsername && currentPortalUsername !== originalPortalUsername) portalAccountPayload.username = currentPortalUsername;
+  return {
+    clientName:String(record.name || '').trim(),
+    tenantLink:{ managingTenantId:managingTenantId || null, clientType:String(record.type || rawTenantLink.clientType || '').trim() },
+    identity:{ firstName:isIndividual ? String(rawIdentity.firstName || nameParts[0] || '').trim() || null : null, lastName:isIndividual ? String(rawIdentity.lastName || nameParts[1] || '').trim() || null : null, middleName:isIndividual ? String(rawIdentity.middleName || nameParts.slice(2).join(' ') || '').trim() || null : null, dateOfBirth:clientApiDateOnly(record.dob) || clientApiDateOnly(rawIdentity.dateOfBirth), companyName:isIndividual ? null : String(record.name || rawIdentity.companyName || '').trim() || null, legalForm:clientApiNullableScalar(record.legalForm) || clientApiNullableScalar(rawIdentity.legalForm), registrationNumber:clientApiNullableScalar(record.registrationNo) || clientApiNullableScalar(rawIdentity.registrationNumber), taxIdVatNumber:clientApiNullableScalar(record.taxId) || clientApiNullableScalar(rawIdentity.taxIdVatNumber), role:clientApiNullableScalar(record.identityRole) || clientApiNullableScalar(rawIdentity.role), preferredLanguage:String(record.language || rawIdentity.preferredLanguage || 'English').trim() },
+    address:{ country:String(record.country || '').trim(), stateRegion:String(record.region || '').trim(), city:String(record.city || '').trim(), streetAddress:clientApiNullableScalar(record.address) || clientApiNullableScalar(rawAddress.streetAddress) || '' },
+    preferences:{ timeZone:String(clientApiNullableScalar(record.timezone) || clientApiNullableScalar(rawPreferences.timeZone) || '').trim(), temperatureUnit:String(clientApiNullableScalar(record.temperature) || clientApiNullableScalar(rawPreferences.temperatureUnit) || '').trim(), currency:String(clientApiNullableScalar(record.currency) || clientApiNullableScalar(rawPreferences.currency) || '').trim(), irradiationUnit:String(clientApiNullableScalar(record.irradiation) || clientApiNullableScalar(rawPreferences.irradiationUnit) || '').trim(), language:String(clientApiNullableScalar(record.language) || clientApiNullableScalar(rawPreferences.language) || clientApiNullableScalar(rawIdentity.preferredLanguage) || '').trim() },
+    primaryContact:{ phoneNumber1:clientApiNullableScalar(record.contactPhone) || clientApiNullableScalar(rawPrimary.phoneNumber1), phoneNumber2:clientApiNullableScalar(record.phone2) || clientApiNullableScalar(rawPrimary.phoneNumber2), email:(clientApiNullableScalar(record.contactEmail) || clientApiNullableScalar(rawPrimary.email))?.toLocaleLowerCase() || null, fullName:clientApiNullableScalar(record.primaryContact) || clientApiNullableScalar(rawPrimary.fullName) },
+    portalAccount:portalAccountPayload,
+    documentation:{ identityDocument:clientApiDocumentReference(rawDocumentation.identityDocument), registrationDocument:clientApiDocumentReference(rawDocumentation.registrationDocument) },
+    bankAccounts:Array.isArray(record.bankAccounts) ? record.bankAccounts.map(account => { const payload:Record<string,unknown>={ bankName:String(account.bankName || account.bank || '').trim(), bankCode:String(account.bankCode || '').trim(), accountNumber:String(account.accountNumber || account.account || '').trim(), accountCurrency:String(account.accountCurrency || account.currency || '').trim(), primary:Boolean(account.primary) }; if(account.id)payload.id=account.id; return payload; }) : []
+  };
+}
+function normalizeClientDocumentType(value: string): string {
+  const raw = String(value || '').trim();
+  const aliases: Record<string,string> = { identity:'Identity', passport:'Identity', registration:'Legal', legal:'Legal', project:'Commercial', commercial:'Commercial', finance:'Finance', compliance:'Compliance', access:'Access', assignment:'Assignment' };
+  return aliases[raw.toLowerCase()] || raw || 'Legal';
+}
+function clientDocumentMultipart(candidate: { file:File; name:string; type:string; expiry?:string }): FormData {
+  const payload = new FormData();
+  payload.append('file', candidate.file, candidate.file.name);
+  payload.append('name', candidate.name || candidate.file.name);
+  payload.append('type', normalizeClientDocumentType(candidate.type));
+  if (candidate.expiry) { const parsed = new Date(`${candidate.expiry}T00:00:00`); payload.append('expiry', Number.isNaN(parsed.getTime()) ? candidate.expiry : parsed.toISOString()); }
+  return payload;
+}
+async function uploadClientDetailDocuments(clientId: string, docs: FleetClientDocumentRecord[]): Promise<{ uploaded:number; failures:string[] }> {
+  const candidates = docs.filter(doc => doc.localFile instanceof File && !doc.id && !doc.filePath);
+  if (!candidates.length) return { uploaded:0, failures:[] };
+  if (!window.FleetAPIMutations?.clients?.uploadDocument) return { uploaded:0, failures:candidates.map(doc => `${doc.name || doc.localFile?.name || 'Document'}: upload API unavailable`) };
+  let uploaded = 0; const failures: string[] = [];
+  for (const doc of candidates) { const candidate = { file:doc.localFile!, name:doc.name || doc.localFile!.name, type:doc.type || 'Legal', expiry:doc.expiry || '' }; const result = await window.FleetAPIMutations.clients.uploadDocument(clientId, clientDocumentMultipart(candidate)); if (result.ok) uploaded += 1; else failures.push(`${candidate.name}: ${result.error?.message || result.message || 'upload failed'}`); }
+  return { uploaded, failures };
+}
+async function saveClientDetailEdits(baseRecord: FleetClientRecord, plants: FleetPlantRecord[]): Promise<void> {
+  if (!clientDetailEditMode || !clientDetailDraft || clientDetailBusy) return;
+  const backendManaged = clientDetailBackendManaged(baseRecord);
+  if (!FleetActionPermissions.guard({ action:'edit', resource:'client', record:baseRecord, status:baseRecord.status, origin:clientDetailOrigin(baseRecord), updateAvailable:backendManaged, localOverride:!backendManaged })) return;
+  if (!clientDetailCanEdit(baseRecord)) { const copy=clientDetailModeCopy(baseRecord); setClientDetailFeedback(copy.tone,copy.title,copy.message); return; }
+  const content = document.getElementById('clientTabContent'); const summary = document.getElementById('clientDetailEditSummary'); if (!content) return;
+  const validation = FleetFormUX.validate(content, clientDetailValidationIssues(clientDetailDraft, clientDetailActiveTab, content), summary, 'Client changes were not saved'); if (!validation.valid) { FleetFormUX.focusFirst(validation, summary); return; }
+  const button = document.getElementById('saveClientEdit') as HTMLButtonElement | null; clientDetailBusy = true; document.getElementById('clientDetailControl')?.setAttribute('aria-busy','true'); if (button) FleetFormUX.setBusy(button, true, backendManaged ? 'Saving to API…' : 'Saving…');
+  try {
+    if (backendManaged) {
+      if (!window.FleetAPIMutations?.clients?.update) throw new Error('Client update API runtime is unavailable.');
+      const result = await window.FleetAPIMutations.clients.update(baseRecord.id, clientDetailApiPayload(clientDetailDraft));
+      if (!result.ok) throw new Error(result.error?.message || result.message || 'Backend rejected the client update.');
+      const documentUpload = await uploadClientDetailDocuments(baseRecord.id, clientDetailDraft.documentRecords || []);
+      if (documentUpload.failures.length) throw new Error(`Client profile was saved, but ${documentUpload.failures.length} document upload(s) failed: ${documentUpload.failures.join(' | ')}`);
+      const refreshed = await window.FleetAPIRepositories?.clients?.get(baseRecord.id, { forceRefresh:true }).catch(() => null);
+      const apiRecord = refreshed?.item as FleetClientRecord | null | undefined; if (apiRecord?.id) Object.assign(baseRecord, apiRecord);
+      clientDetailEditMode=false; clientDetailDraft=null; clientDetailEditSnapshot=''; clientDetailBusy=false; renderClientDetailPage(); setClientDetailFeedback('success','Client updated','Changes were saved through PUT /api/admin/clients/{id}.'); return;
+    }
+    const changed = FleetDataSource.markChanged({ ...clientDetailDraft, updated:new Date().toLocaleString() }, 'client') as FleetClientRecord; changed.documents = changed.documentRecords?.length || 0; changed.users = changed.portalUsers?.length || 0; Object.assign(baseRecord, changed); FleetLocalStore.addClient(baseRecord); clientDetailEditMode=false; clientDetailDraft=null; clientDetailEditSnapshot=''; clientDetailBusy=false; renderClientDetailPage(); setClientDetailFeedback('success','Client section saved locally','This local/session record was updated in browser storage.');
+  } catch (error) { clientDetailBusy=false; document.getElementById('clientDetailControl')?.setAttribute('aria-busy','false'); if (button) FleetFormUX.setBusy(button,false); FleetFormUX.renderSummary(summary,[{ message:error instanceof Error ? error.message : 'Unable to save the client.' }],'Client changes were not saved'); summary?.focus(); }
+}
 function addClientDetailDocument(baseRecord: FleetClientRecord, plants: FleetPlantRecord[]): void {
   if (!clientDetailDraft) return;
   clientDetailDraft.documentRecords = clientDetailDraft.documentRecords || [];
-  clientDetailDraft.documentRecords.push({ name:'', type:'Legal', status:'Draft' });
+  clientDetailDraft.documentRecords.push({ name:'', type:'Legal', status:'Pending' });
   renderClientDetailCurrentTab(baseRecord, plants);
+}
+function selectClientDetailDocumentFile(input: HTMLInputElement): void {
+  if (!clientDetailDraft) return;
+  const index = Number(input.dataset.clientDocumentFile); const file = input.files?.[0];
+  if (!Number.isInteger(index) || !file || !clientDetailDraft.documentRecords?.[index]) return;
+  if (!/\.(pdf|doc|docx|jpg|jpeg|png)$/i.test(file.name)) { input.value=''; setClientDetailFeedback('danger','Unsupported document type','Allowed document formats: PDF, DOC, DOCX, JPG, JPEG, PNG.'); return; }
+  const doc=clientDetailDraft.documentRecords[index]!; doc.localFile=file; doc.fileName=file.name; if (!doc.name.trim()) doc.name=file.name.replace(/\.[^.]+$/,'');
+  const row=input.closest<HTMLElement>('[data-client-document-row]'); const nameInput=row?.querySelector<HTMLInputElement>('[data-client-document-field="name"]'); if(nameInput&&!nameInput.value.trim())nameInput.value=doc.name; const fileName=row?.querySelector<HTMLElement>(`[data-client-document-file-name="${index}"]`); if(fileName)fileName.textContent=file.name;
+  setClientDetailFeedback('info','Document ready to upload',`${file.name} will be uploaded when you save Client changes.`);
 }
 function removeClientDetailDocument(index: number, baseRecord: FleetClientRecord, plants: FleetPlantRecord[]): void {
   if (!clientDetailDraft?.documentRecords?.[index]) return;
@@ -1551,6 +1739,29 @@ function selectedTenantClientForDetail(): FleetClientRecord | null {
   return record;
 }
 
+function backendDocumentMime(fileName: string): string {
+  const lower=fileName.toLowerCase(); if(lower.endsWith('.pdf'))return 'application/pdf'; if(lower.endsWith('.docx'))return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; if(lower.endsWith('.doc'))return 'application/msword'; if(lower.endsWith('.png'))return 'image/png'; if(lower.endsWith('.jpg')||lower.endsWith('.jpeg'))return 'image/jpeg'; return 'application/octet-stream';
+}
+function triggerBackendDocumentDownload(blob: Blob, fileName: string): void {
+  const url=URL.createObjectURL(blob); const anchor=document.createElement('a'); anchor.href=url; anchor.download=fileName; anchor.style.display='none'; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+function resolveBackendDocumentPayload(payload: unknown, safeFileName: string): boolean {
+  const visited=new Set<unknown>();
+  const resolve=(value:unknown,depth=0):boolean=>{
+    if(depth>4||value==null||visited.has(value))return false;
+    if(value instanceof Blob){triggerBackendDocumentDownload(value,safeFileName);return true;}
+    if(typeof value==='string'){
+      if(value.length && (value.startsWith('PK\x03\x04') || value.startsWith('%PDF-') || /[\x00-\x08\x0e-\x1f]/.test(value.slice(0,64)))){ const bytes=new Uint8Array(value.length); for(let i=0;i<value.length;i+=1)bytes[i]=value.charCodeAt(i)&0xff; triggerBackendDocumentDownload(new Blob([bytes],{type:backendDocumentMime(safeFileName)}),safeFileName); return true; }
+      const text=value.trim(); if(/^(https?:|blob:|data:)/i.test(text)){const anchor=document.createElement('a');anchor.href=text;anchor.download=safeFileName;anchor.target='_blank';anchor.rel='noopener noreferrer';anchor.click();return true;} return false;
+    }
+    if(typeof value!=='object')return false; visited.add(value); const record=value as Record<string,unknown>;
+    const base64=['contentBase64','base64','fileContentBase64','fileBase64'].map(key=>record[key]).find(item=>typeof item==='string'&&item.trim());
+    if(typeof base64==='string'){try{const binary=atob(base64.replace(/^data:[^,]+,/,''));const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i+=1)bytes[i]=binary.charCodeAt(i);triggerBackendDocumentDownload(new Blob([bytes],{type:String(record.contentType||record.mimeType||backendDocumentMime(safeFileName))}),String(record.fileName||record.filename||safeFileName));return true;}catch(_error){return false;}}
+    for(const key of ['downloadUrl','fileUrl','url','uri','data','document','file','result','content'])if(resolve(record[key],depth+1))return true; return false;
+  };
+  return resolve(payload);
+}
+
 function renderClientDetailPage() {
   const requestedEditTab = localStorage.getItem('zentrid_client_detail_edit') as ClientDetailTabKey | null;
   if (requestedEditTab && ['identity','location','portal','users','commercial'].includes(requestedEditTab)) clientDetailActiveTab = requestedEditTab;
@@ -1582,7 +1793,7 @@ function renderClientDetailPage() {
         <button class="${clientDetailActiveTab === 'activity' ? 'active' : ''}" data-client-tab="activity" ${clientDetailActiveTab === 'activity' ? 'aria-current="page"' : ''}><span>Activity</span></button>
       </aside>
       <section class="glass-card client-main-card-v17">
-        <div class="client-detail-content-head-v118"><div><span>Active section</span><h2 id="clientDetailActiveTitle">${clientDetailEscape(clientDetailSectionTitle(clientDetailActiveTab))}</h2></div><div class="client-detail-actions-v118"><button id="editClientTab" class="small-btn primary" type="button" data-permission-action="edit" data-permission-resource="client" data-permission-status="${clientDetailAttr(client.status)}" data-permission-origin="${clientDetailAttr(clientDetailOrigin(client))}" data-permission-update-available="false" data-permission-local-override="false" data-permission-base-disabled="${clientDetailCanEdit(client, clientDetailActiveTab) ? 'false' : 'true'}">Edit</button><button id="cancelClientEdit" class="small-btn ghost" type="button" hidden>Cancel</button><button id="saveClientEdit" class="small-btn success" type="button" hidden data-permission-action="edit" data-permission-resource="client" data-permission-status="${clientDetailAttr(client.status)}" data-permission-origin="${clientDetailAttr(clientDetailOrigin(client))}" data-permission-update-available="false" data-permission-local-override="false">Save Changes</button></div></div>
+        <div class="client-detail-content-head-v118"><div><span>Active section</span><h2 id="clientDetailActiveTitle">${clientDetailEscape(clientDetailSectionTitle(clientDetailActiveTab))}</h2></div><div class="client-detail-actions-v118"><button id="editClientTab" class="small-btn primary" type="button" data-permission-action="edit" data-permission-resource="client" data-permission-status="${clientDetailAttr(client.status)}" data-permission-origin="${clientDetailAttr(clientDetailOrigin(client))}" data-permission-update-available="true" data-permission-local-override="false" data-permission-base-disabled="${clientDetailCanEdit(client, clientDetailActiveTab) ? 'false' : 'true'}">Edit</button><button id="cancelClientEdit" class="small-btn ghost" type="button" hidden>Cancel</button><button id="saveClientEdit" class="small-btn success" type="button" hidden data-permission-action="edit" data-permission-resource="client" data-permission-status="${clientDetailAttr(client.status)}" data-permission-origin="${clientDetailAttr(clientDetailOrigin(client))}" data-permission-update-available="true" data-permission-local-override="false">Save Changes</button></div></div>
         <div class="form-validation-summary client-detail-summary-v118" id="clientDetailEditSummary" role="alert" aria-live="assertive" tabindex="-1" hidden></div>
         <div class="client-tab-content" id="clientTabContent">${clientTab(client, plants, clientDetailActiveTab, false)}</div>
       </section>
@@ -1619,6 +1830,15 @@ function renderClientDetailPage() {
   clientTabContent?.addEventListener('click', event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const lifecycle = target.closest<HTMLElement>('[data-client-lifecycle]');
+    if (lifecycle) { void runClientDetailLifecycle(client, lifecycle.dataset.clientLifecycle as 'activate'|'deactivate'|'suspend'|'archive'); return; }
+    const downloadClientDocument = target.closest<HTMLElement>('[data-client-document-download]');
+    if (downloadClientDocument?.dataset.clientDocumentDownload) {
+      const documentId=downloadClientDocument.dataset.clientDocumentDownload; const doc=clientDetailDocumentsData(client).find(item=>String(item.id||item.filePath||'')===documentId); const fileName=String(doc?.fileName||doc?.name||`client-document-${documentId}`).trim() || `client-document-${documentId}`;
+      void window.ZentridPlatformAPI.clients.getDocument(client.id,documentId).then((payload: unknown)=>{ if(resolveBackendDocumentPayload(payload,fileName))FleetLayout.toast('Client document download started.'); else FleetLayout.toast('Unable to convert the backend document response into a downloadable file.'); }).catch(()=>FleetLayout.toast('Unable to download client document.')); return;
+    }
+    const deleteClientDocument = target.closest<HTMLElement>('[data-delete-client-document]');
+    if (deleteClientDocument?.dataset.deleteClientDocument) { const documentId=deleteClientDocument.dataset.deleteClientDocument; if(!FleetActionPermissions.guard({ action:'edit', resource:'client', record:client, status:client.status, origin:clientDetailOrigin(client), updateAvailable:true }))return; if(!window.confirm('Delete this client document from the backend?'))return; void window.FleetAPIMutations.clients.deleteDocument(client.id,documentId).then(result=>{FleetLayout.toast(result.message);if(result.ok)window.setTimeout(()=>window.location.reload(),250);}); return; }
     if (target.closest('[data-add-client-document]')) { addClientDetailDocument(client, plants); return; }
     const removeDocument = target.closest<HTMLElement>('[data-remove-client-document]');
     if (removeDocument) { removeClientDetailDocument(Number(removeDocument.dataset.removeClientDocument), client, plants); return; }
@@ -1652,7 +1872,7 @@ function renderClientDetailPage() {
     const documentRow = target.closest<HTMLElement>('[data-client-document-row]');
     const documentIndex = Number(documentRow?.dataset.clientDocumentRow);
     const documentField = target.dataset.clientDocumentField as keyof FleetClientDocumentRecord | undefined;
-    if (documentField && clientDetailDraft.documentRecords?.[documentIndex]) clientDetailDraft.documentRecords[documentIndex]![documentField] = target.value;
+    if (documentField && clientDetailDraft.documentRecords?.[documentIndex] && (documentField === 'name' || documentField === 'type' || documentField === 'status' || documentField === 'expiry')) clientDetailDraft.documentRecords[documentIndex]![documentField] = target.value;
     const userRow = target.closest<HTMLElement>('[data-client-user-row]');
     const userIndex = Number(userRow?.dataset.clientUserRow);
     const userField = target.dataset.clientUserField as keyof FleetPortalUser | undefined;
@@ -1677,6 +1897,7 @@ function renderClientDetailPage() {
   });
   clientTabContent?.addEventListener('change', event => {
     const target = event.target;
+    if (target instanceof HTMLInputElement && target.hasAttribute('data-client-document-file')) { selectClientDetailDocumentFile(target); return; }
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) syncDynamicField(target);
   });
   if (requestedEditTab && clientDetailCanEdit(client, requestedEditTab)) setClientDetailEditMode(true, client, plants);
@@ -1833,9 +2054,25 @@ function accessScopeMatrix(client: FleetClientRecord, plants: FleetPlantRecord[]
 
 function clientDocuments(client: FleetClientRecord): string {
   const rows = clientDetailDocumentsData(client);
-  return `<div class="section-title-v17 mini"><div><h3>Documents</h3><p class="muted">Client-level legal, commercial and access metadata. Technical device manuals stay inside Plant Detail.</p></div><span class="badge ${rows.length ? 'success' : 'warning'}">${rows.length ? `${rows.length} records` : 'No records'}</span></div>${rows.length ? `<div class="data-table compact-table client-document-view-v118"><div class="data-head"><span>Document</span><span>Type</span><span>Status</span><span>Expiry</span></div>${rows.map(row => `<div class="data-row"><div><strong>${clientDetailEscape(row.name)}</strong><small>Client document metadata</small></div><div><strong>${clientDetailEscape(row.type)}</strong></div><div><span class="badge ${['Verified','Active','Signed','Updated'].includes(row.status) ? 'success' : row.status === 'Expired' ? 'danger' : 'warning'}">${clientDetailEscape(row.status)}</span></div><div><strong>${clientDetailEscape(row.expiry || 'Not set')}</strong></div></div>`).join('')}</div>` : `<div class="empty-state"><strong>No client documents</strong><small>The backend client response did not include document records.</small></div>`}`;
+  return `<div class="section-title-v17 mini"><div><h3>Documents</h3><p class="muted">Client-level legal, commercial and access metadata. Technical device manuals stay inside Plant Detail.</p></div><span class="badge ${rows.length ? 'success' : 'warning'}">${rows.length ? `${rows.length} records` : 'No records'}</span></div>${rows.length ? `<div class="data-table compact-table client-document-view-v118"><div class="data-head"><span>Document</span><span>Type</span><span>Status</span><span>Expiry</span><span>Action</span></div>${rows.map(row => { const persistedId=String(row.id || row.filePath || '').trim(); return `<div class="data-row"><div><strong>${clientDetailEscape(row.name)}</strong><small>${clientDetailEscape(row.fileName || 'Client document metadata')}</small></div><div><strong>${clientDetailEscape(row.type)}</strong></div><div><span class="badge ${['Verified','Active','Signed','Updated'].includes(row.status) ? 'success' : row.status === 'Expired' ? 'danger' : 'warning'}">${clientDetailEscape(row.status)}</span></div><div><strong>${clientDetailEscape(row.expiry || 'Not set')}</strong></div><div class="row-actions single-action">${persistedId ? `<button class="small-btn" type="button" data-client-document-download="${clientDetailAttr(persistedId)}">Download</button>` : '<span>—</span>'}</div></div>`; }).join('')}</div>` : `<div class="empty-state"><strong>No client documents</strong><small>The backend has not returned any document records for this client.</small></div>`}`;
 }
 
+
+function clientDetailLifecycleHtml(client: FleetClientRecord): string {
+  if (!clientDetailBackendManaged(client)) return '';
+  const status=String(client.status || '').trim().toLowerCase();
+  if (status==='archived') return `<div class="section-title-v17 mini"><div><h3>Lifecycle Actions</h3><p class="muted">Client lifecycle is managed by the backend.</p></div></div><div class="empty-state"><strong>Client archived</strong><small>This client is read-only.</small></div>`;
+  const activate=status==='active' ? '' : '<button class="primary-action" type="button" data-client-lifecycle="activate" data-permission-action="activate" data-permission-resource="client">Activate</button>';
+  const deactivate=status==='active' ? '<button class="secondary-action" type="button" data-client-lifecycle="deactivate" data-permission-action="deactivate" data-permission-resource="client">Deactivate</button>' : '';
+  const suspend=status==='suspended' ? '' : '<button class="secondary-action" type="button" data-client-lifecycle="suspend" data-permission-action="suspend" data-permission-resource="client">Suspend</button>';
+  return `<div class="section-title-v17 mini"><div><h3>Lifecycle Actions</h3><p class="muted">These actions write directly to the Client backend.</p></div></div><div class="row-actions client-lifecycle-actions-v142"><span class="badge neutral">${clientDetailEscape(client.status || '—')}</span>${activate}${deactivate}${suspend}<button class="danger-action" type="button" data-client-lifecycle="archive" data-permission-action="archive" data-permission-resource="client">Archive</button></div>`;
+}
+async function runClientDetailLifecycle(client: FleetClientRecord, action:'activate'|'deactivate'|'suspend'|'archive'): Promise<void> {
+  if (!clientDetailBackendManaged(client) || !window.FleetAPIMutations?.clients?.[action]) return;
+  if (!FleetActionPermissions.guard({ action, resource:'client', record:client, status:client.status, origin:clientDetailOrigin(client), updateAvailable:true })) return;
+  const verb=action.charAt(0).toUpperCase()+action.slice(1); if (!window.confirm(`${verb} “${client.name}”?`)) return;
+  setClientDetailFeedback('info',`${verb} client`,'Sending lifecycle action to backend…'); const result=await window.FleetAPIMutations.clients[action](client.id); FleetLayout.toast(result.message); if(result.ok)window.setTimeout(()=>window.location.reload(),250);else setClientDetailFeedback('danger',`${verb} failed`,result.message);
+}
 
 function clientOverviewTab(client: FleetClientRecord, plants: FleetPlantRecord[]): string {
   const counts = FleetClientModel.countsForClient(client.id);
@@ -1856,9 +2093,10 @@ function clientOverviewTab(client: FleetClientRecord, plants: FleetPlantRecord[]
     <article><span>Plants</span><strong>${counts.plants}</strong><small>Open Plants tab to inspect client devices</small></article>
     <article><span>Alerts</span><strong>${counts.alerts}</strong><small>Open Alerts tab to see recent issues</small></article>
     <article><span>Portal Users</span><strong>${clientPortalUsers(client, plants).length}</strong><small>Open Users & Access for detailed portal scope</small></article>
-    <article><span>Documents</span><strong>${client.documents || 0}</strong><small>Client documents stay available from registry context</small></article>
+    <article><span>Documents</span><strong>${client.documents || 0}</strong><small>Client documents are stored through the backend Documents API</small></article>
   </div>
-  ${plants.length ? `<div class="section-title-v17 mini"><div><h3>Assigned Plants Preview</h3><p class="muted">Quick preview of the most important linked plants.</p></div></div>${plantSummaryCards(plants.slice(0, 3))}` : `<div class="empty-state"><strong>No plant assigned yet</strong><small>Use Assigned Plants to review plant role, access scope and commercial visibility.</small></div>`}`;
+  ${plants.length ? `<div class="section-title-v17 mini"><div><h3>Assigned Plants Preview</h3><p class="muted">Quick preview of the most important linked plants.</p></div></div>${plantSummaryCards(plants.slice(0, 3))}` : `<div class="empty-state"><strong>No plant assigned yet</strong><small>Use Assigned Plants to review plant role, access scope and commercial visibility.</small></div>`}
+  ${clientDetailLifecycleHtml(client)}`;
 }
 
 function clientIdentityTab(client: FleetClientRecord): string {
@@ -2170,12 +2408,16 @@ function plantDetailEscape(value: unknown): string {
 function plantDetailAttr(value: unknown): string { return plantDetailEscape(value).replace(/`/g, '&#096;'); }
 function plantDetailClone(record: FleetPlantRecord): FleetPlantRecord { return JSON.parse(JSON.stringify(record)) as FleetPlantRecord; }
 function plantDetailOrigin(record: FleetPlantRecord): FleetDataOrigin { return FleetEntityDetailUX.origin(record, 'plant'); }
-function plantDetailBackendManaged(record: FleetPlantRecord): boolean { return FleetEntityDetailUX.backendManaged(record, 'plant'); }
+function plantDetailAdminId(record: FleetPlantRecord): string {
+  const raw=record.raw || {};
+  const adminRecord=raw.adminRecord && typeof raw.adminRecord==='object' && !Array.isArray(raw.adminRecord) ? raw.adminRecord as Record<string,unknown> : {};
+  return String(record.adminId || record.registryPlantId || adminRecord.id || adminRecord.plantId || '').trim();
+}
+function plantDetailBackendManaged(record: FleetPlantRecord): boolean { return Boolean(plantDetailAdminId(record)); }
 function plantDetailArchived(record: FleetPlantRecord): boolean { return FleetEntityDetailUX.archived(record.status); }
 function plantDetailEditableTab(tab: PlantDetailTabKey = plantDetailActiveTab): boolean { return tab === 'overview'; }
-function plantDetailCanEdit(_record: FleetPlantRecord, _tab: PlantDetailTabKey = plantDetailActiveTab): boolean {
-  // The current Swagger contract does not expose a plant update endpoint.
-  return false;
+function plantDetailCanEdit(record: FleetPlantRecord, tab: PlantDetailTabKey = plantDetailActiveTab): boolean {
+  return plantDetailBackendManaged(record) && !plantDetailArchived(record) && plantDetailEditableTab(tab);
 }
 function plantDetailSourceSystem(record: FleetPlantRecord): string {
   if (record.sourceSystem) return String(record.sourceSystem);
@@ -2196,14 +2438,12 @@ function plantDetailFreshness(record: FleetPlantRecord): string {
   });
 }
 function plantDetailModeCopy(record: FleetPlantRecord): { tone: PlantDetailFeedbackTone; title: string; message: string } {
-  return FleetEntityDetailUX.modeCopy(record, 'plant', {
+  if (plantDetailOrigin(record)!=='local' && !plantDetailBackendManaged(record)) return { tone:'info', title:'Operational plant · read-only', message:'Master-data editing, lifecycle actions and documents require a linked /api/admin/plants record.' };
+  return FleetEntityDetailUX.modeCopy(record,'plant',{
     status:record.status,
-    backendTitle:'Live plant · backend read-only',
-    backendMessage:'Plant values come from the backend API. Browser overrides are disabled because a plant update endpoint is not available.',
-    backendTone:'info',
-    archivedTitle:'Archived plant',
-    archivedMessage:'Archived plants are read-only. Plant status is not editable as a normal form field.',
-    localTone:'warning'
+    backendTitle:'Plant Registry record · backend editing available',
+    backendMessage:'Supported master-data edits are saved through PUT /api/admin/plants/{id}. Lifecycle changes use dedicated backend actions.',
+    backendTone:'info', archivedTitle:'Archived plant', archivedMessage:'Archived plants are read-only. Plant status is not editable as a normal form field.', localTone:'warning'
   });
 }
 function setPlantDetailFeedback(tone: PlantDetailFeedbackTone, title: string, message: string): void {
@@ -2261,7 +2501,7 @@ function plantDetailClientLabel(clientId: string): string {
 }
 function plantDetailClientSelect(record: FleetPlantRecord): string {
   const options = plantDetailClientOptions(record.clientId).map(id => `<option value="${plantDetailAttr(id)}" ${id === record.clientId ? 'selected' : ''}>${plantDetailEscape(plantDetailClientLabel(id))}</option>`).join('');
-  return `<label>Client / Owner *<select name="clientId" data-plant-edit="clientId" required>${options}</select><small class="field-help">Changes the client assignment only in the local prototype.</small></label>`;
+  return `<label>Client / Owner *<select name="clientId" data-plant-edit="clientId" required>${options}</select><small class="field-help">Changes the client assignment through the Plant Registry backend update for live records.</small></label>`;
 }
 function plantDetailEditTab(record: FleetPlantRecord, tab: PlantDetailTabKey): string {
   if (tab === 'overview') {
@@ -2297,7 +2537,7 @@ function plantDetailEditTab(record: FleetPlantRecord, tab: PlantDetailTabKey): s
       ${plantDetailInput('tenantId','Tenant ID / Reference',record.tenantId || '',undefined,'text',false)}
       ${plantDetailInput('om','Service / O&M Provider',record.om,undefined,'text',true)}
     </div>
-    <div class="plant-source-warning-v119" role="note"><strong>Mapping safety</strong><small>Any change to Source System, Integration or External Plant ID is local metadata only. Confirm the change before saving.</small></div>`;
+    <div class="plant-source-warning-v119" role="note"><strong>Mapping safety</strong><small>Changes to Source System, Integration or External Plant ID affect mapping traceability. Confirm the change before saving to the backend.</small></div>`;
 }
 function plantDetailSnapshot(): string { return JSON.stringify(plantDetailDraft || {}); }
 function plantDetailHasUnsavedEdits(): boolean { return plantDetailEditMode && plantDetailEditSnapshot !== plantDetailSnapshot(); }
@@ -2352,6 +2592,35 @@ function plantDetailNormalizeForSave(record: FleetPlantRecord): FleetPlantRecord
     updated: new Date().toLocaleString()
   };
 }
+function plantDetailUpdatePayload(record: FleetPlantRecord): Record<string, unknown> {
+  const dcMw=plantDetailNumber(record.capacityDc), acMw=plantDetailNumber(record.capacityAc), gridMw=plantDetailNumber(record.gridCapacity);
+  const clean=(value:unknown):string=>{ const text=String(value ?? '').trim(); return text==='—'?'':text; };
+  const payload:Record<string,unknown>={ plantName:clean(record.name), plantCode:clean(record.code), clientId:clean(record.clientId), plantType:clean(record.type), countryRegion:clean(record.country), plantTimeZone:clean(record.timezone) };
+  const optional=(key:string,value:unknown):void=>{ if(value===undefined||value===null||value==='')return; payload[key]=value; };
+  optional('managingTenantId',clean(record.tenantId)); optional('managingTenant',clean(record.tenantId || record.operator)); optional('region',clean(record.region)); optional('city',clean(record.city)); optional('address',clean(record.address)); optional('commissioningDate',clean(record.commissioning)); optional('serviceProvider',clean(record.om));
+  const raw=record.raw || {}; const rawLocation=raw.location && typeof raw.location==='object' && !Array.isArray(raw.location) ? raw.location as Record<string,unknown> : {}; const rawTechnical=raw.technical && typeof raw.technical==='object' && !Array.isArray(raw.technical) ? raw.technical as Record<string,unknown> : {}; const rawCommercial=raw.commercial && typeof raw.commercial==='object' && !Array.isArray(raw.commercial) ? raw.commercial as Record<string,unknown> : {};
+  const location:Record<string,unknown>={...rawLocation}; const setLocation=(key:string,value:unknown):void=>{ const text=clean(value); if(text)location[key]=text; };
+  setLocation('address',record.address); setLocation('countryRegion',record.country); setLocation('region',record.region); setLocation('city',record.city); setLocation('timezone',record.timezone);
+  const latText=clean(record.latitude), lngText=clean(record.longitude); if(latText)location.lat=latText; if(lngText)location.lng=lngText; if(!clean(location.coordinates)&&latText&&lngText)location.coordinates=`${latText}, ${lngText}`; if(!clean(location.mapRef)&&clean(record.address))location.mapRef=clean(record.address); optional('location',location);
+  optional('technical',{...rawTechnical}); optional('commercial',{...rawCommercial}); optional('sourceScheme',clean(record.sourceSystem || plantDetailSourceSystem(record))); optional('integrationName',clean(record.integration)); optional('externalPlantId',clean(record.externalId)); optional('portfolio',clean(record.portfolio));
+  const latitude=Number(clean(record.latitude)), longitude=Number(clean(record.longitude)); if(clean(record.latitude)&&Number.isFinite(latitude))optional('latitude',latitude); if(clean(record.longitude)&&Number.isFinite(longitude))optional('longitude',longitude); optional('batteryInstalled',clean(record.battery));
+  if(Number.isFinite(dcMw)){ payload.installedCapacityDcMw=dcMw; payload.installedPowerKw=dcMw*1000; } if(Number.isFinite(acMw))payload.installedCapacityAcMw=acMw; if(Number.isFinite(gridMw))payload.gridConnectionCapacityMw=gridMw;
+  return payload;
+}
+function plantDetailLifecycleHtml(record: FleetPlantRecord): string {
+  if(!plantDetailBackendManaged(record))return '<div class="empty-state"><strong>Lifecycle requires a Plant Registry record</strong><small>Backend lifecycle actions are available only when the plant is linked to /api/admin/plants.</small></div>';
+  const status=String(record.status||'').toLowerCase(); if(status==='archived')return '<div class="empty-state"><strong>Plant archived</strong><small>This plant is read-only.</small></div>';
+  const primary=status==='active' ? '<button class="secondary-action" type="button" data-plant-lifecycle="deactivate" data-permission-action="deactivate" data-permission-resource="plant">Deactivate</button>' : '<button class="primary-action" type="button" data-plant-lifecycle="activate" data-permission-action="activate" data-permission-resource="plant">Activate</button>';
+  return `<div class="row-actions"><span class="badge neutral">${plantDetailEscape(record.status)}</span>${primary}<button class="danger-action" type="button" data-plant-lifecycle="archive" data-permission-action="archive" data-permission-resource="plant">Archive</button></div>`;
+}
+function plantDetailDocuments(record: FleetPlantRecord): Record<string,unknown>[] {
+  const raw=record.raw || {}; const candidates=[raw.documents,raw.documentRecords,raw.adminRecord && typeof raw.adminRecord==='object' ? (raw.adminRecord as Record<string,unknown>).documents : null]; return (candidates.find(Array.isArray) as Record<string,unknown>[] | undefined) || [];
+}
+function plantDetailDocumentsHtml(record: FleetPlantRecord): string {
+  const docs=plantDetailDocuments(record); const rows=docs.map((doc,index)=>{ const id=String(doc.id||doc.documentId||'').trim(); const name=String(doc.name||doc.fileName||doc.filename||`Document ${index+1}`); const type=String(doc.type||doc.documentType||'—'); const expiry=String(doc.expiry||doc.expiryDate||'—'); return `<div class="data-row"><div><strong>${plantDetailEscape(name)}</strong><small>${plantDetailEscape(id||'No document id')}</small></div><span>${plantDetailEscape(type)}</span><span>${plantDetailEscape(expiry)}</span><div class="row-actions">${id ? `<button type="button" data-plant-document-download="${plantDetailAttr(id)}">Download</button><button class="danger-action" type="button" data-plant-document-delete="${plantDetailAttr(id)}">Delete</button>` : '<span class="badge muted">Unavailable</span>'}</div></div>`; }).join('');
+  return `<form id="plantDocumentUploadForm" class="plant-document-upload-form"><div class="plant-edit-grid-v119 plant-document-upload-grid-v141"><label>Document Name *<input name="name" placeholder="e.g. Grid Connection Agreement" required></label><label>Type *<select name="type" required><option>Legal</option><option>Technical</option><option>Compliance</option><option>Contract</option><option>Other</option></select></label><label>Expiry Date<input type="date" name="expiry"></label><label>Document File *<input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required></label></div><div class="row-actions plant-document-upload-actions-v141"><button class="primary-action" type="submit">Upload Document</button></div></form><div class="data-table compact-table plant-document-table-v141"><div class="data-head"><span>Document</span><span>Type</span><span>Expiry</span><span>Actions</span></div>${rows || '<div class="empty-state"><strong>No plant documents</strong><small>Upload the first document using the form above.</small></div>'}</div>`;
+}
+
 function plantDetailSourceChanged(base: FleetPlantRecord, draft: FleetPlantRecord): boolean {
   return ['sourceSystem','integration','externalId'].some(key => String(base[key] || '') !== String(draft[key] || ''));
 }
@@ -2403,16 +2672,99 @@ function setPlantDetailEditMode(enabled: boolean, baseRecord: FleetPlantRecord, 
   clearPlantDetailFeedback();
   renderPlantDetailCurrentTab(baseRecord, devices);
 }
-function savePlantDetailEdits(baseRecord: FleetPlantRecord, _devices: FleetDeviceRecord[]): void {
-  const copy = plantDetailModeCopy(baseRecord);
-  setPlantDetailFeedback('warning', copy.title, copy.message);
-  plantDetailEditMode = false;
-  plantDetailDraft = null;
-  plantDetailEditSnapshot = '';
-  updatePlantDetailActions(baseRecord);
+async function savePlantDetailEdits(baseRecord: FleetPlantRecord, devices: FleetDeviceRecord[]): Promise<void> {
+  if(!plantDetailEditMode || !plantDetailDraft || plantDetailBusy)return;
+  const backendManaged=plantDetailBackendManaged(baseRecord);
+  if(!FleetActionPermissions.guard({ action:'edit', resource:'plant', record:baseRecord, status:baseRecord.status, origin:plantDetailOrigin(baseRecord), updateAvailable:backendManaged, localOverride:!backendManaged }))return;
+  if(!plantDetailCanEdit(baseRecord)){ const copy=plantDetailModeCopy(baseRecord); setPlantDetailFeedback(copy.tone,copy.title,copy.message); return; }
+  const content=document.getElementById('plantTabContent'), summary=document.getElementById('plantDetailEditSummary'); if(!content)return;
+  const validation=FleetFormUX.validate(content,plantDetailValidationIssues(plantDetailDraft,plantDetailActiveTab,content),summary,'Plant changes were not saved'); if(!validation.valid){FleetFormUX.focusFirst(validation,summary);return;}
+  const sourceChanged=plantDetailSourceChanged(baseRecord,plantDetailDraft), assignmentChanged=plantDetailAssignmentChanged(baseRecord,plantDetailDraft); if(sourceChanged&&!window.confirm('Source System, Integration or External Plant ID changed. Save these mapping changes?'))return; if(assignmentChanged&&!window.confirm('Client or Managing Tenant assignment changed. Save this assignment update?'))return;
+  const button=document.getElementById('savePlantEdit') as HTMLButtonElement | null; plantDetailBusy=true; document.getElementById('plantDetailControl')?.setAttribute('aria-busy','true'); if(button)FleetFormUX.setBusy(button,true,backendManaged?'Saving to API…':'Saving…');
+  try{
+    const normalized=plantDetailNormalizeForSave(plantDetailDraft);
+    if(backendManaged){ const result=await window.FleetAPIMutations.plants.update(plantDetailAdminId(baseRecord),plantDetailUpdatePayload(normalized)); if(!result.ok)throw new Error(result.error?.message || result.message); plantDetailEditMode=false; plantDetailDraft=null; plantDetailEditSnapshot=''; plantDetailBusy=false; FleetLayout.toast(result.message); window.setTimeout(()=>window.location.reload(),250); return; }
+    throw new Error('This plant is not linked to a Plant Registry record, so Tenant Admin will not create a browser-local override.');
+  }catch(error){ plantDetailBusy=false; document.getElementById('plantDetailControl')?.setAttribute('aria-busy','false'); if(button)FleetFormUX.setBusy(button,false); FleetFormUX.renderSummary(summary,[{message:error instanceof Error?error.message:'Unable to save the plant.'}],'Plant changes were not saved'); summary?.focus(); }
+}
+
+type FleetPlantTelemetryRecord = Record<string, unknown>;
+
+function plantTelemetryRecords(record: FleetPlantRecord): FleetPlantTelemetryRecord[] {
+  const store = window.ZentridLiveTelemetryByPlant as Record<string, FleetPlantTelemetryRecord[]> | undefined;
+  if (!store) return Array.isArray(record.relatedTelemetry) ? record.relatedTelemetry as FleetPlantTelemetryRecord[] : [];
+  const keys = [record.id, record.externalId, record.code, record.operationalId, record.canonicalPlantId]
+    .map(value => String(value || '').trim())
+    .filter(Boolean);
+  for (const key of keys) {
+    const rows = store[key];
+    if (Array.isArray(rows)) return rows;
+  }
+  return Array.isArray(record.relatedTelemetry) ? record.relatedTelemetry as FleetPlantTelemetryRecord[] : [];
+}
+
+function plantTelemetryLoaded(record: FleetPlantRecord): boolean {
+  if (Boolean(record.telemetryLoaded)) return true;
+  const loaded = window.ZentridLiveTelemetryLoadedPlants as Record<string, boolean> | undefined;
+  if (!loaded) return false;
+  return [record.id, record.externalId, record.code, record.operationalId, record.canonicalPlantId]
+    .some(value => Boolean(value && loaded[String(value)]));
+}
+
+function plantTelemetryMetricToken(value: unknown): string {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function plantTelemetryTimestamp(record: FleetPlantTelemetryRecord): number {
+  const value = record.timestampRaw || record.timestamp;
+  const timestamp = Date.parse(String(value || ''));
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function plantTelemetryMetricValue(record: FleetPlantRecord, aliases: string[]): string {
+  const expected = aliases.map(plantTelemetryMetricToken);
+  const telemetry = plantTelemetryRecords(record)
+    .filter(item => expected.includes(plantTelemetryMetricToken(item.metric)))
+    .sort((a, b) => plantTelemetryTimestamp(b) - plantTelemetryTimestamp(a))[0];
+  if (!telemetry) return '';
+  const display = String(telemetry.displayValue || '').trim();
+  if (display && display !== '—') return display;
+  const value = telemetry.valueText ?? telemetry.value;
+  if (value === undefined || value === null || value === '') return '';
+  const unit = String(telemetry.unit || '').trim();
+  return `${String(value)}${unit ? ` ${unit}` : ''}`;
+}
+
+function plantTelemetrySummary(record: FleetPlantRecord): { currentPower: string; todayEnergy: string; freshness: string; quality: string; count: number; metrics: number } {
+  const rows = plantTelemetryRecords(record);
+  const latest = rows.slice().sort((a, b) => plantTelemetryTimestamp(b) - plantTelemetryTimestamp(a))[0];
+  return {
+    currentPower: plantTelemetryMetricValue(record, ['current power', 'current power kw', 'active power', 'active power kw', 'plant power', 'plant power kw', 'power']),
+    todayEnergy: plantTelemetryMetricValue(record, ['today energy', 'today energy kwh', 'energy today', 'daily energy', 'daily energy kwh', 'daily yield', 'today yield']),
+    freshness: String(latest?.timestamp || '').trim(),
+    quality: String(latest?.quality || latest?.status || '').trim(),
+    count: rows.length,
+    metrics: new Set(rows.map(item => plantTelemetryMetricToken(item.metric)).filter(Boolean)).size
+  };
+}
+
+function plantTelemetryTable(record: FleetPlantRecord): string {
+  if (!plantTelemetryLoaded(record)) return '<div class="plant-data-state-v119 empty"><strong>Telemetry not loaded yet</strong><small>Open this section to query /api/telemetry for the selected plant.</small></div>';
+  const rows = plantTelemetryRecords(record)
+    .slice()
+    .sort((a, b) => plantTelemetryTimestamp(b) - plantTelemetryTimestamp(a))
+    .slice(0, 20);
+  if (!rows.length) return '<div class="empty-state plant-empty-state-v119"><strong>No matching telemetry records</strong><small>The telemetry request completed, but the current page contained no records linked to this plant.</small></div>';
+  return `<div class="data-table compact-table plant-telemetry-table-v1"><div class="data-head"><span>Metric</span><span>Value</span><span>Quality</span><span>Timestamp</span></div>${rows.map(row => `<div class="data-row"><div><strong>${plantDetailEscape(row.metric || 'Metric')}</strong><small>${plantDetailEscape(row.provider || row.device || 'Plant')}</small></div><div><strong>${plantDetailEscape(row.displayValue || row.valueText || row.value || '—')}</strong><small>${plantDetailEscape(row.unit || '')}</small></div><div><span class="badge ${FleetClientModel.badge(row.quality || row.status || 'Unknown')}">${plantDetailEscape(row.quality || row.status || 'Unknown')}</span></div><div><strong>${plantDetailEscape(row.timestamp || '—')}</strong></div></div>`).join('')}</div>`;
 }
 
 function plantTelemetryState(record: FleetPlantRecord): { kind: 'ready' | 'empty' | 'partial'; title: string; message: string } {
+  if (plantTelemetryLoaded(record)) {
+    const summary = plantTelemetrySummary(record);
+    if (!summary.count) return { kind:'empty', title:'No telemetry available', message:'The loaded telemetry page returned no records matching this plant.' };
+    if (/stale|delay|partial|invalid|error|fault|missing|unavailable/i.test(summary.quality)) return { kind:'partial', title:'Telemetry may be incomplete', message:`${summary.count} matching API record(s) were loaded, but their quality state requires attention.` };
+    return { kind:'ready', title:'Telemetry available', message:`${summary.count} matching API record(s) across ${summary.metrics} metric(s) were loaded for this plant.` };
+  }
   const power = String(record.powerNow || '').trim();
   const energy = String(record.energyToday || '').trim();
   const hasPower = power && !/^0(?:\.0+)?\s*(?:kw|mw)?$/i.test(power) && power !== '—';
@@ -2421,6 +2773,17 @@ function plantTelemetryState(record: FleetPlantRecord): { kind: 'ready' | 'empty
   if (String(record.health || '').toLowerCase().includes('fault') || plantDetailFreshness(record).toLowerCase().includes('unavailable')) return { kind:'partial', title:'Telemetry may be incomplete', message:'Some operational values may be delayed or unavailable. Review Source & Sync before relying on the trend.' };
   return { kind:'ready', title:'Telemetry available', message:'Current and period energy values are available for this plant.' };
 }
+
+function plantDevicesLoaded(record: FleetPlantRecord): boolean { return Boolean(record.devicesLoaded); }
+function plantAlertsLoaded(record: FleetPlantRecord): boolean { return Boolean(record.alertsLoaded); }
+function plantDeviceCountLabel(record: FleetPlantRecord, devices: FleetDeviceRecord[]): string {
+  return plantDevicesLoaded(record) ? String(devices.length) : 'On demand';
+}
+function plantAlertCountLabel(record: FleetPlantRecord): string {
+  if (!plantAlertsLoaded(record)) return 'On demand';
+  return String(Array.isArray(record.relatedAlerts) ? record.relatedAlerts.length : 0);
+}
+
 function deviceRows(items: FleetDeviceRecord[], record?: FleetPlantRecord): string {
   if (!items.length) return `<div class="empty-state plant-empty-state-v119"><strong>No device records</strong><small>${record && plantDetailOrigin(record) === 'local' ? 'This local plant has no device onboarding records yet.' : 'No devices were returned for this plant in the current hierarchy model.'}</small></div>`;
   return `<div class="data-table plant-device-table-v17"><div class="data-head"><span>Object</span><span>Type / Vendor</span><span>Capacity / Model</span><span>Status</span><span>Traceability</span><span>Actions</span></div>${items.map(d => `<div class="data-row" data-device-id="${plantDetailAttr(d.id)}"><div><strong>${plantDetailEscape(d.name)}</strong><small>${plantDetailEscape(d.id)}<br>${plantDetailEscape(d.serial)}</small></div><div><strong>${plantDetailEscape(d.type)}</strong><small>${plantDetailEscape(d.vendor)}</small></div><div><strong>${plantDetailEscape(d.capacity)}</strong><small>${plantDetailEscape(d.model)}</small></div><div><span class="badge ${FleetClientModel.badge(d.status)}">${plantDetailEscape(d.status)}</span><small>Last seen ${plantDetailEscape(d.lastSeen)}</small></div><div><strong>${plantDetailEscape(d.location)}</strong><small>${plantDetailEscape(d.children)}</small></div><div class="row-actions"><button type="button" data-open-device="${plantDetailAttr(d.id)}">View Device</button><button type="button" data-device-history="${plantDetailAttr(d.id)}">Open History</button></div></div>`).join('')}</div>`;
@@ -2475,14 +2838,18 @@ function plantTab(plant: FleetPlantRecord, devices: FleetDeviceRecord[], tab: Pl
   if (activeTab === 'structure') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Plant Structure</h2><p class="muted">Hierarchical plant tree. This is the bridge between the plant and physical devices.</p></div></div>${plantDetailStructureTree(plant, devices)}`);
   if (activeTab === 'energy') {
     const state = plantTelemetryState(plant);
-    return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Energy & Telemetry</h2><p class="muted">Plant-level live production, period energy and data freshness summary.</p></div><span class="badge ${state.kind === 'ready' ? 'success' : state.kind === 'partial' ? 'warning' : 'neutral'}">${plantDetailEscape(state.kind)}</span></div><div class="plant-data-state-v119 ${state.kind}"><strong>${plantDetailEscape(state.title)}</strong><small>${plantDetailEscape(state.message)}</small></div><div class="info-grid"><div><span>Current Power</span><strong>${plantDetailEscape(plant.powerNow || '—')}</strong><small>Instant power</small></div><div><span>Today Energy</span><strong>${plantDetailEscape(plant.energyToday || '—')}</strong><small>Energy accumulated today</small></div><div><span>Installed Capacity DC</span><strong>${plantDetailEscape(plant.capacityDc)}</strong></div><div><span>Installed Capacity AC</span><strong>${plantDetailEscape(plant.capacityAc)}</strong></div><div><span>Freshness</span><strong>${plantDetailEscape(plantDetailFreshness(plant))}</strong></div><div><span>Telemetry Quality</span><strong>${state.kind === 'ready' ? 'Available' : state.kind === 'partial' ? 'Partial / delayed' : 'No data'}</strong></div></div>${state.kind === 'empty' ? '' : '<div class="chart-placeholder">Historical energy series is not available from the current API.</div>'}`);
+    const telemetry = plantTelemetrySummary(plant);
+    const currentPower = telemetry.currentPower || plant.powerNow || '—';
+    const todayEnergy = telemetry.todayEnergy || plant.energyToday || '—';
+    const quality = telemetry.quality || (state.kind === 'ready' ? 'Available' : state.kind === 'partial' ? 'Partial / delayed' : 'No data');
+    return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Energy & Telemetry</h2><p class="muted">Plant-level operational values plus the plant-scoped /api/telemetry response.</p></div><span class="badge ${state.kind === 'ready' ? 'success' : state.kind === 'partial' ? 'warning' : 'neutral'}">${plantDetailEscape(state.kind)}</span></div><div class="plant-data-state-v119 ${state.kind}"><strong>${plantDetailEscape(state.title)}</strong><small>${plantDetailEscape(state.message)}</small></div><div class="info-grid"><div><span>Current Power</span><strong>${plantDetailEscape(currentPower)}</strong><small>${telemetry.currentPower ? 'Latest matching telemetry metric' : 'Operational plant snapshot'}</small></div><div><span>Today Energy</span><strong>${plantDetailEscape(todayEnergy)}</strong><small>${telemetry.todayEnergy ? 'Latest matching telemetry metric' : 'Operational plant snapshot'}</small></div><div><span>Installed Capacity DC</span><strong>${plantDetailEscape(plant.capacityDc)}</strong></div><div><span>Installed Capacity AC</span><strong>${plantDetailEscape(plant.capacityAc)}</strong></div><div><span>Latest Telemetry</span><strong>${plantDetailEscape(telemetry.freshness || plantDetailFreshness(plant))}</strong></div><div><span>Telemetry Quality</span><strong>${plantDetailEscape(quality)}</strong></div><div><span>Telemetry Records</span><strong>${plantTelemetryLoaded(plant) ? telemetry.count : 'On demand'}</strong></div><div><span>Distinct Metrics</span><strong>${plantTelemetryLoaded(plant) ? telemetry.metrics : 'On demand'}</strong></div></div>${plantTelemetryTable(plant)}`);
   }
-  if (activeTab === 'alerts') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Alerts & Events</h2><p class="muted">Plant-level incident entry point with severity and affected device context.</p></div></div><div class="info-grid"><div><span>Open Alerts</span><strong>${plantDetailAlertRecords(plant).length || Number(plant.alerts || 0)}</strong></div><div><span>Health</span><strong>${plantDetailEscape(plant.health)}</strong></div><div><span>Primary Scope</span><strong>Plant / Device</strong></div><div><span>Workflow</span><strong>Alert → SOP → Task</strong></div></div>${plantDetailAlertsTable(plant)}`);
-  if (activeTab === 'device') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Devices & Device</h2><p class="muted">Full device registry for this plant. Use specific tabs for focused views.</p></div><span class="badge neutral">${devices.length} records</span></div>${deviceRows(devices, plant)}`);
+  if (activeTab === 'alerts') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Alerts & Events</h2><p class="muted">Plant-level incident entry point with severity and affected device context.</p></div></div><div class="info-grid"><div><span>Open Alerts</span><strong>${plantAlertCountLabel(plant)}</strong></div><div><span>Health</span><strong>${plantDetailEscape(plant.health)}</strong></div><div><span>Primary Scope</span><strong>Plant / Device</strong></div><div><span>Workflow</span><strong>Alert → SOP → Task</strong></div></div>${plantDetailAlertsTable(plant)}`);
+  if (activeTab === 'device') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Devices & Device</h2><p class="muted">Full device registry for this plant. Use specific tabs for focused views.</p></div><span class="badge neutral">${plantDeviceCountLabel(plant, devices)} records</span></div>${deviceRows(devices, plant)}`);
   if (activeTab === 'arrays') return `${context}<div class="section-title-v17"><div><h2>Arrays & Strings</h2><p class="muted">PV module and string values returned for the selected plant.</p></div></div><div class="info-grid"><div><span>Panels</span><strong>${Number(plant.panels || 0).toLocaleString()}</strong></div><div><span>Strings</span><strong>${plant.strings}</strong></div><div><span>Associated Inverters</span><strong>${plant.inverters}</strong></div><div><span>Traceability</span><strong>${devices.length ? 'Derived from linked device records' : 'No linked device records'}</strong></div></div>`;
   if (activeTab === 'metering') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Metering & Grid</h2><p class="muted">Metering points, transformers, switchgear, grid interface and weather context.</p></div></div>${deviceRows(devices.filter(d => d.type === 'Meter' || d.type === 'Grid Device' || d.type === 'Switchgear' || d.type === 'Weather Station'), plant)}`);
-  if (activeTab === 'reportsdocs') return `${context}<div class="section-title-v17"><div><h2>Reports & Documents</h2><p class="muted">Plant-level reports and documents are not persisted until their backend domains are available.</p></div></div><div class="empty-state plant-empty-state-v119"><strong>No persisted report or document records</strong><small>Generated reports and uploaded documents will appear here after the reporting and document APIs are connected.</small></div>`;
-  if (activeTab === 'adminsync') return `${context}<div class="section-title-v17"><div><h2>Settings & Source</h2><p class="muted">Plant assignment, source traceability and lifecycle-safe configuration context.</p></div></div><div class="info-grid"><div><span>Portfolio</span><strong>${plantDetailEscape(plant.portfolio)}</strong></div><div><span>Client / Owner</span><strong>${plantDetailEscape(plantDetailClientLabel(plant.clientId) || plant.owner)}</strong></div><div><span>Managing Tenant</span><strong>${plantDetailEscape(plant.operator)}</strong></div><div><span>Service / O&M Provider</span><strong>${plantDetailEscape(plant.om)}</strong></div><div><span>Source System</span><strong>${plantDetailEscape(plant.sourceSystem || plantDetailSourceSystem(plant))}</strong></div><div><span>Integration</span><strong>${plantDetailEscape(plant.integration || plantDetailSourceSystem(plant))}</strong></div><div><span>Zentrid Plant ID</span><strong>${plantDetailEscape(plant.id)}</strong></div><div><span>External Plant ID</span><strong>${plantDetailEscape(plant.externalId)}</strong></div><div><span>Freshness</span><strong>${plantDetailEscape(plantDetailFreshness(plant))}</strong></div><div><span>Lifecycle Status</span><strong>${plantDetailEscape(plant.status)}</strong><small>Read-only in generic editing</small></div></div>`;
+  if (activeTab === 'reportsdocs') return `${context}<div class="section-title-v17"><div><h2>Reports & Documents</h2><p class="muted">Plant documents are persisted through the Plant Registry document API. Reporting remains a separate domain.</p></div></div>${plantDetailBackendManaged(plant) ? plantDetailDocumentsHtml(plant) : '<div class="empty-state plant-empty-state-v119"><strong>Plant Registry record required</strong><small>Document upload, download and delete require a linked /api/admin/plants record.</small></div>'}`;
+  if (activeTab === 'adminsync') return `${context}<div class="section-title-v17"><div><h2>Settings & Source</h2><p class="muted">Plant assignment, source traceability and lifecycle-safe configuration context.</p></div></div><div class="info-grid"><div><span>Portfolio</span><strong>${plantDetailEscape(plant.portfolio)}</strong></div><div><span>Client / Owner</span><strong>${plantDetailEscape(plantDetailClientLabel(plant.clientId) || plant.owner)}</strong></div><div><span>Managing Tenant</span><strong>${plantDetailEscape(plant.operator)}</strong></div><div><span>Service / O&M Provider</span><strong>${plantDetailEscape(plant.om)}</strong></div><div><span>Source System</span><strong>${plantDetailEscape(plant.sourceSystem || plantDetailSourceSystem(plant))}</strong></div><div><span>Integration</span><strong>${plantDetailEscape(plant.integration || plantDetailSourceSystem(plant))}</strong></div><div><span>Zentrid Plant ID</span><strong>${plantDetailEscape(plant.id)}</strong></div><div><span>Registry Plant ID</span><strong>${plantDetailEscape(plantDetailAdminId(plant) || 'Not linked')}</strong></div><div><span>External Plant ID</span><strong>${plantDetailEscape(plant.externalId)}</strong></div><div><span>Freshness</span><strong>${plantDetailEscape(plantDetailFreshness(plant))}</strong></div><div><span>Lifecycle Status</span><strong>${plantDetailEscape(plant.status)}</strong><small>Changed only through lifecycle actions</small></div></div><div class="section-title-v17 mini"><div><h3>Lifecycle Actions</h3><p class="muted">Available only for a linked Plant Registry record.</p></div></div>${plantDetailLifecycleHtml(plant)}`;
   if (activeTab === 'inverters') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Inverters</h2><p class="muted">Inverter records linked to this plant by the API.</p></div></div>${deviceRows(by('Inverter'), plant)}`);
   if (activeTab === 'batteries') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>BESS / PCS</h2><p class="muted">Storage devices linked to this plant by the API.</p></div></div>${deviceRows(by('Battery'), plant)}`);
   if (activeTab === 'gateways') return plantLazyTab(activeTab, `${context}<div class="section-title-v17"><div><h2>Loggers & Gateways</h2><p class="muted">Communication devices linked to this plant by the API.</p></div></div>${deviceRows(devices.filter(d => d.type === 'Logger' || d.type === 'Gateway'), plant)}`);
@@ -2490,7 +2857,7 @@ function plantTab(plant: FleetPlantRecord, devices: FleetDeviceRecord[], tab: Pl
     const activity = plantDetailActivityRows(plant);
     return `${context}<div class="section-title-v17"><div><h2>Activity</h2><p class="muted">Plant-level timeline returned by the backend.</p></div></div>${activity.length ? `<div class="timeline-v17">${activity.map(row => `<div><b>${plantDetailEscape(row.time)}</b><span>${plantDetailEscape(row.text)}</span></div>`).join('')}</div>` : `<div class="empty-state plant-empty-state-v119"><strong>No activity records returned</strong><small>The current plant API response does not include an activity or audit timeline.</small></div>`}`;
   }
-  return `${context}<div class="section-title-v17"><div><h2>Plant Overview & Master Data</h2><p class="muted">Canonical identity, location and technical characteristics for this plant.</p></div><span class="badge ${FleetClientModel.badge(plant.health)}">${plantDetailEscape(plant.health)}</span></div><div class="info-grid"><div><span>Plant ID</span><strong>${plantDetailEscape(plant.id)}</strong></div><div><span>External Plant ID</span><strong>${plantDetailEscape(plant.externalId)}</strong></div><div><span>Plant Status</span><strong>${plantDetailEscape(plant.status)}</strong><small>Lifecycle value · read-only</small></div><div><span>Plant Type</span><strong>${plantDetailEscape(plant.type)}</strong></div><div><span>Client / Owner</span><strong>${plantDetailEscape(plantDetailClientLabel(plant.clientId) || plant.owner)}</strong></div><div><span>Managing Tenant</span><strong>${plantDetailEscape(plant.operator)}</strong></div><div><span>Location</span><strong>${plantDetailEscape(plant.country)}, ${plantDetailEscape(plant.region)}, ${plantDetailEscape(plant.city)}</strong></div><div><span>Address</span><strong>${plantDetailEscape(plant.address)}</strong></div><div><span>Time Zone</span><strong>${plantDetailEscape(plant.timezone)}</strong></div><div><span>Commissioning Date</span><strong>${plantDetailEscape(plant.commissioning)}</strong></div><div><span>Installed Capacity DC</span><strong>${plantDetailEscape(plant.capacityDc)}</strong></div><div><span>Installed Capacity AC</span><strong>${plantDetailEscape(plant.capacityAc)}</strong></div><div><span>Grid Connection Capacity</span><strong>${plantDetailEscape(plant.gridCapacity)}</strong></div><div><span>Battery Installed</span><strong>${plantDetailEscape(plant.battery)}</strong></div></div><div class="section-title-v17 mini"><div><h3>Related data</h3><p class="muted">Device, alert and telemetry requests are deferred until their tabs are opened.</p></div></div><div class="info-grid"><div><span>Device count</span><strong>${Number(plant.devices || devices.length || 0)}</strong><small>Open Devices & Device to load records</small></div><div><span>Alert count</span><strong>${Number(plant.alerts || 0)}</strong><small>Open Alerts & Events to load records</small></div><div><span>Telemetry</span><strong>On demand</strong><small>Open Energy & Telemetry</small></div></div>`;
+  return `${context}<div class="section-title-v17"><div><h2>Plant Overview & Master Data</h2><p class="muted">Canonical identity, location and technical characteristics for this plant.</p></div><span class="badge ${FleetClientModel.badge(plant.health)}">${plantDetailEscape(plant.health)}</span></div><div class="info-grid"><div><span>Plant ID</span><strong>${plantDetailEscape(plant.id)}</strong></div><div><span>External Plant ID</span><strong>${plantDetailEscape(plant.externalId)}</strong></div><div><span>Plant Status</span><strong>${plantDetailEscape(plant.status)}</strong><small>Lifecycle value · read-only</small></div><div><span>Plant Type</span><strong>${plantDetailEscape(plant.type)}</strong></div><div><span>Client / Owner</span><strong>${plantDetailEscape(plantDetailClientLabel(plant.clientId) || plant.owner)}</strong></div><div><span>Managing Tenant</span><strong>${plantDetailEscape(plant.operator)}</strong></div><div><span>Location</span><strong>${plantDetailEscape(plant.country)}, ${plantDetailEscape(plant.region)}, ${plantDetailEscape(plant.city)}</strong></div><div><span>Address</span><strong>${plantDetailEscape(plant.address)}</strong></div><div><span>Time Zone</span><strong>${plantDetailEscape(plant.timezone)}</strong></div><div><span>Commissioning Date</span><strong>${plantDetailEscape(plant.commissioning)}</strong></div><div><span>Installed Capacity DC</span><strong>${plantDetailEscape(plant.capacityDc)}</strong></div><div><span>Installed Capacity AC</span><strong>${plantDetailEscape(plant.capacityAc)}</strong></div><div><span>Grid Connection Capacity</span><strong>${plantDetailEscape(plant.gridCapacity)}</strong></div><div><span>Battery Installed</span><strong>${plantDetailEscape(plant.battery)}</strong></div></div><div class="section-title-v17 mini"><div><h3>Related data</h3><p class="muted">Device, alert and telemetry requests are deferred until their tabs are opened.</p></div></div><div class="info-grid"><div><span>Device count</span><strong>${plantDetailEscape(plantDeviceCountLabel(plant, devices))}</strong><small>${plantDevicesLoaded(plant) ? 'Loaded from plant-scoped relation API' : 'Open Devices & Device to load records'}</small></div><div><span>Alert count</span><strong>${plantDetailEscape(plantAlertCountLabel(plant))}</strong><small>${plantAlertsLoaded(plant) ? 'Loaded for selected plant scope' : 'Open Alerts & Events to load records'}</small></div><div><span>Telemetry</span><strong>${plantTelemetryLoaded(plant) ? 'Loaded' : 'On demand'}</strong><small>Open Energy & Telemetry</small></div></div>`;
 }
 
 function plantDetailText(value: unknown, fallback = '—'): string {
@@ -2604,7 +2971,7 @@ function renderPlantDetailPage() {
         <button class="${plantDetailActiveTab === 'activity' ? 'active' : ''}" data-plant-tab="activity" ${plantDetailActiveTab === 'activity' ? 'aria-current="page"' : ''}>Activity</button>
       </aside>
       <section class="glass-card plant-main-card-v17">
-        <div class="plant-detail-content-head-v119"><div><span>Active section</span><h2 id="plantDetailActiveTitle">${plantDetailEscape(plantDetailSectionTitle(plantDetailActiveTab))}</h2></div><div class="plant-detail-actions-v119"><button id="editPlantTab" class="small-btn primary" type="button" data-permission-action="edit" data-permission-resource="plant" data-permission-status="${plantDetailAttr(plant.status)}" data-permission-origin="${plantDetailAttr(plantDetailOrigin(plant))}" data-permission-update-available="false" data-permission-local-override="false" data-permission-base-disabled="${plantDetailCanEdit(plant, plantDetailActiveTab) ? 'false' : 'true'}">Edit</button><button id="cancelPlantEdit" class="small-btn ghost" type="button" hidden>Cancel</button><button id="savePlantEdit" class="small-btn success" type="button" hidden data-permission-action="edit" data-permission-resource="plant" data-permission-status="${plantDetailAttr(plant.status)}" data-permission-origin="${plantDetailAttr(plantDetailOrigin(plant))}" data-permission-update-available="false" data-permission-local-override="false">Save Changes</button></div></div>
+        <div class="plant-detail-content-head-v119"><div><span>Active section</span><h2 id="plantDetailActiveTitle">${plantDetailEscape(plantDetailSectionTitle(plantDetailActiveTab))}</h2></div><div class="plant-detail-actions-v119"><button id="editPlantTab" class="small-btn primary" type="button" data-permission-action="edit" data-permission-resource="plant" data-permission-status="${plantDetailAttr(plant.status)}" data-permission-origin="${plantDetailAttr(plantDetailOrigin(plant))}" data-permission-update-available="true" data-permission-local-override="false" data-permission-base-disabled="${plantDetailCanEdit(plant, plantDetailActiveTab) ? 'false' : 'true'}">Edit</button><button id="cancelPlantEdit" class="small-btn ghost" type="button" hidden>Cancel</button><button id="savePlantEdit" class="small-btn success" type="button" hidden data-permission-action="edit" data-permission-resource="plant" data-permission-status="${plantDetailAttr(plant.status)}" data-permission-origin="${plantDetailAttr(plantDetailOrigin(plant))}" data-permission-update-available="true" data-permission-local-override="false">Save Changes</button></div></div>
         <div class="form-validation-summary plant-detail-summary-v119" id="plantDetailEditSummary" role="alert" aria-live="assertive" tabindex="-1" hidden></div>
         <div id="plantTabContent">${plantTab(plant, devices, plantDetailActiveTab)}</div>
       </section>
@@ -2657,6 +3024,20 @@ function renderPlantDetailPage() {
   plantTabContent?.addEventListener('click', event => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const lifecycle = target.closest<HTMLElement>('[data-plant-lifecycle]');
+    const downloadDocument = target.closest<HTMLElement>('[data-plant-document-download]');
+    const deleteDocument = target.closest<HTMLElement>('[data-plant-document-delete]');
+    if (lifecycle?.dataset.plantLifecycle) {
+      const action=lifecycle.dataset.plantLifecycle as 'activate'|'deactivate'|'archive'; const run=window.FleetAPIMutations?.plants?.[action]; if(!run)return;
+      if(!FleetActionPermissions.guard({ action, resource:'plant', record:plant, status:plant.status, origin:plantDetailOrigin(plant), updateAvailable:true }))return;
+      const prompt=action==='archive'?`Archive ${plant.name}?`:action==='deactivate'?`Deactivate ${plant.name}?`:''; if(prompt&&!window.confirm(prompt))return;
+      void run(plantDetailAdminId(plant)).then(result=>{FleetLayout.toast(result.message);if(result.ok)window.setTimeout(()=>window.location.reload(),250);}); return;
+    }
+    if (downloadDocument?.dataset.plantDocumentDownload) {
+      const documentId=downloadDocument.dataset.plantDocumentDownload; const doc=plantDetailDocuments(plant).find(item=>String(item.id||item.documentId||'')===documentId); const fileName=String(doc?.fileName||doc?.filename||doc?.name||`plant-document-${documentId}`).trim()||`plant-document-${documentId}`;
+      void window.ZentridPlatformAPI.plantRegistry.getDocument(plantDetailAdminId(plant),documentId).then((payload: unknown)=>{if(resolveBackendDocumentPayload(payload,fileName))FleetLayout.toast('Plant document download started.');else FleetLayout.toast('Unable to convert the backend document response into a downloadable file.');}).catch(()=>FleetLayout.toast('Unable to download plant document.')); return;
+    }
+    if (deleteDocument?.dataset.plantDocumentDelete) { if(!FleetActionPermissions.guard({ action:'edit', resource:'plant', record:plant, status:plant.status, origin:plantDetailOrigin(plant), updateAvailable:true }))return; if(!window.confirm('Delete this plant document from the backend?'))return; void window.FleetAPIMutations.plants.deleteDocument(plantDetailAdminId(plant),deleteDocument.dataset.plantDocumentDelete).then(result=>{FleetLayout.toast(result.message);if(result.ok)window.setTimeout(()=>window.location.reload(),250);}); return; }
     const open = target.closest<HTMLElement>('[data-open-device]');
     const history = target.closest<HTMLElement>('[data-device-history]');
     const openDeviceId = open?.dataset.openDevice;
@@ -2687,6 +3068,11 @@ function renderPlantDetailPage() {
   plantTabContent?.addEventListener('change', event => {
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) syncPlantField(target);
+  });
+  plantTabContent?.addEventListener('submit', event => {
+    const form=event.target; if(!(form instanceof HTMLFormElement)||form.id!=='plantDocumentUploadForm')return; event.preventDefault(); if(!plantDetailBackendManaged(plant))return; if(!FleetActionPermissions.guard({ action:'edit', resource:'plant', record:plant, status:plant.status, origin:plantDetailOrigin(plant), updateAvailable:true }))return;
+    const fd=new FormData(form); const file=fd.get('file'); if(!(file instanceof File)||!file.name){FleetLayout.toast('Choose a document file first.');return;}
+    void window.FleetAPIMutations.plants.uploadDocument(plantDetailAdminId(plant),fd).then(result=>{FleetLayout.toast(result.message);if(result.ok)window.setTimeout(()=>window.location.reload(),250);});
   });
   if (requestedEditTab && plantDetailCanEdit(plant, requestedEditTab)) setPlantDetailEditMode(true, plant, devices);
   if (!plantDetailBeforeUnloadBound) {
